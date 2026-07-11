@@ -1,7 +1,9 @@
-// SnapRec — pipeline de video por canvas:
-//  1) selectArea(): selección de rectángulo sobre un frame congelado (modo área)
-//  2) createPipeline(): compone pantalla (+recorte) (+cámara incrustada como
-//     círculo/rectángulo limpio, sin marcos de ventana) → canvas.captureStream
+// SnapRec — pipeline de video por canvas y selección de área
+//  - freezeFrame(): congela un frame de un stream en un canvas
+//  - selectOnFrame(): UI de selección de rectángulo sobre un frame dado
+//  - selectArea(): congela + selecciona (flujo del modo área al grabar)
+//  - createPipeline(): compone pantalla (+recorte) (+capa de anotaciones en
+//    vivo) (+cámara incrustada) → canvas.captureStream
 // Expone window.Crop
 
 const Crop = (() => {
@@ -13,7 +15,7 @@ const Crop = (() => {
   const CAM_SIZES = { s: 0.18, m: 0.25, l: 0.33 }
   const CAM_MARGIN = 24
 
-  // ── Utilidad: video oculto reproduciendo un stream ────────────────────────
+  // ── Utilidades de stream ───────────────────────────────────────────────────
 
   async function playStream (stream) {
     const v = document.createElement('video')
@@ -27,28 +29,44 @@ const Crop = (() => {
     return v
   }
 
-  // ── Selección de área (devuelve región en píxeles nativos, o null) ───────
+  // Congela el frame actual de un stream en un canvas nuevo
+  async function freezeFrame (stream) {
+    const v = await playStream(stream)
+    const cv = document.createElement('canvas')
+    cv.width = v.videoWidth
+    cv.height = v.videoHeight
+    cv.getContext('2d').drawImage(v, 0, 0)
+    v.srcObject = null
+    return cv
+  }
 
-  async function selectArea (displayStream) {
-    const srcVideo = await playStream(displayStream)
-    const nativeW = srcVideo.videoWidth
-    const nativeH = srcVideo.videoHeight
+  // ── Selección de área ──────────────────────────────────────────────────────
 
+  // Muestra la UI de selección sobre un frame ya congelado
+  async function selectOnFrame (frameCanvas) {
+    const nativeW = frameCanvas.width
+    const nativeH = frameCanvas.height
     frameCv.width = nativeW
     frameCv.height = nativeH
-    frameCv.getContext('2d').drawImage(srcVideo, 0, 0)
+    frameCv.getContext('2d').drawImage(frameCanvas, 0, 0)
     selectCv.width = nativeW
     selectCv.height = nativeH
+    return runSelection(nativeW, nativeH)
+  }
 
-    const region = await runSelection(nativeW, nativeH)
-    srcVideo.srcObject = null
-    return region
+  // Flujo del grabador: congela el stream y selecciona encima
+  async function selectArea (displayStream) {
+    const frame = await freezeFrame(displayStream)
+    return selectOnFrame(frame)
   }
 
   // ── Pipeline compositor ───────────────────────────────────────────────────
-  // opts: { displayStream, region|null, camStream|null, camera: {shape, size, corner}, fps }
+  // opts: { displayStream, region|null, camStream|null, camera: {shape,size,corner},
+  //         withAnnotations: bool, fps }
+  // Devuelve { stream, stop, annotationCanvas, width, height }
+  // Orden de capas: pantalla → anotaciones → cámara
 
-  async function createPipeline ({ displayStream, region, camStream, camera, fps }) {
+  async function createPipeline ({ displayStream, region, camStream, camera, withAnnotations, fps }) {
     const srcVideo = await playStream(displayStream)
     const camVideo = camStream ? await playStream(camStream) : null
 
@@ -59,6 +77,13 @@ const Crop = (() => {
     cv.width = outW
     cv.height = outH
     const ctx = cv.getContext('2d')
+
+    let annotationCanvas = null
+    if (withAnnotations) {
+      annotationCanvas = document.createElement('canvas')
+      annotationCanvas.width = outW
+      annotationCanvas.height = outH
+    }
 
     function drawCam () {
       const base = Math.round(Math.min(outW, outH) * (CAM_SIZES[camera.size] || CAM_SIZES.m))
@@ -101,6 +126,7 @@ const Crop = (() => {
       } else {
         ctx.drawImage(srcVideo, 0, 0, outW, outH)
       }
+      if (annotationCanvas) ctx.drawImage(annotationCanvas, 0, 0)
       if (camVideo) drawCam()
     }
 
@@ -110,6 +136,9 @@ const Crop = (() => {
 
     return {
       stream,
+      annotationCanvas,
+      width: outW,
+      height: outH,
       stop: () => {
         clearInterval(interval)
         srcVideo.srcObject = null
@@ -213,5 +242,5 @@ const Crop = (() => {
     })
   }
 
-  return { selectArea, createPipeline }
+  return { playStream, freezeFrame, selectOnFrame, selectArea, createPipeline }
 })()

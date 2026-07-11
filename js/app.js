@@ -1,36 +1,43 @@
 // SnapRec — máquina de estados de la UI
-// Estados: setup → (área) → countdown → grabando → resultado → setup
+// Pestañas: GRABAR (setup → grabando/estudio → resultado) y CAPTURAR (→ editor)
 
 (() => {
   const views = {
     setup: document.getElementById('view-setup'),
     rec:   document.getElementById('view-rec'),
+    edit:  document.getElementById('view-edit'),
     done:  document.getElementById('view-done')
   }
   const headerStatus = document.getElementById('header-status')
-  const countdownEl  = document.getElementById('countdown')
-  const countdownNum = document.getElementById('countdown-num')
 
-  let mode = 'full'         // full | area
+  let mainTab = 'record'    // record | capture
+  let mode = 'full'         // full | area   (grabación)
+  let capMode = 'full'      // full | area   (captura)
   let quality = 'native24'
   let camMode = 'embed'     // embed | off
   let camCorner = 'br'      // tl | tr | bl | br
   let lastResult = null
   let lastObjectUrl = null
 
+  let recTools = null       // estado del toolbar del estudio
+  let editTools = null      // estado del toolbar del editor de capturas
+  let studioSurface = null  // Tools.attach del estudio (para teardown)
+
   const PREF_KEY = 'snaprec-opts'
 
   function loadPrefs () {
     try {
       const p = JSON.parse(localStorage.getItem(PREF_KEY)) || {}
+      if (p.mainTab) mainTab = p.mainTab
       if (p.mode) mode = p.mode
+      if (p.capMode) capMode = p.capMode
       if (p.quality) quality = p.quality
       if (p.camMode) camMode = p.camMode
       if (p.camCorner) camCorner = p.camCorner
     } catch {}
   }
   function savePrefs () {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ mode, quality, camMode, camCorner }))
+    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, camCorner }))
   }
 
   function showView (name) {
@@ -48,13 +55,71 @@
     if (!ok) {
       document.getElementById('unsupported').hidden = false
       document.getElementById('btn-record').disabled = true
+      document.getElementById('btn-capture').disabled = true
     }
     return ok
   }
 
-  // ── Opciones (modo, calidad, burbuja) ────────────────────────────────────
+  // ── Toolbars de anotación (estudio y editor comparten estructura) ────────
+
+  function wireToolbar (barId) {
+    const bar = document.getElementById(barId)
+    const state = { tool: 'pen', color: Tools.INKS[0], size: 4, api: null }
+
+    const swWrap = bar.querySelector('.ink-swatches')
+    Tools.INKS.forEach((ink, i) => {
+      const b = document.createElement('button')
+      b.className = 'ink-swatch' + (i === 0 ? ' active' : '')
+      b.style.background = ink
+      b.title = ink
+      b.setAttribute('aria-label', 'Color de tinta ' + ink)
+      b.addEventListener('click', () => {
+        state.color = ink
+        swWrap.querySelectorAll('.ink-swatch').forEach(s => s.classList.toggle('active', s === b))
+      })
+      swWrap.appendChild(b)
+    })
+
+    bar.querySelectorAll('[data-tool]').forEach(b =>
+      b.addEventListener('click', () => {
+        state.tool = b.dataset.tool
+        bar.querySelectorAll('[data-tool]').forEach(x => x.classList.toggle('active', x === b))
+      }))
+
+    const sizeVal = bar.querySelector('.size-val')
+    bar.querySelectorAll('[data-act]').forEach(b =>
+      b.addEventListener('click', () => {
+        const act = b.dataset.act
+        if (act === 'size-inc') { state.size = Math.min(14, state.size + 1); sizeVal.textContent = state.size }
+        else if (act === 'size-dec') { state.size = Math.max(1, state.size - 1); sizeVal.textContent = state.size }
+        else if (state.api) {
+          if (act === 'undo') state.api.undo()
+          if (act === 'redo') state.api.redo()
+          if (act === 'clear') state.api.clear()
+        }
+      }))
+
+    return state
+  }
+
+  // ── Opciones del setup ───────────────────────────────────────────────────
 
   function wireOptions () {
+    // Pestañas principales
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === mainTab)
+      btn.addEventListener('click', () => {
+        mainTab = btn.dataset.tab
+        savePrefs()
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn))
+        document.getElementById('setup-record').hidden = (mainTab !== 'record')
+        document.getElementById('setup-capture').hidden = (mainTab !== 'capture')
+      })
+    })
+    document.getElementById('setup-record').hidden = (mainTab !== 'record')
+    document.getElementById('setup-capture').hidden = (mainTab !== 'capture')
+
+    // Modo de grabación
     document.querySelectorAll('[data-mode]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.mode === mode)
       btn.addEventListener('click', () => {
@@ -66,6 +131,17 @@
     })
     document.getElementById('area-warning').hidden = (mode !== 'area')
 
+    // Área de captura
+    document.querySelectorAll('[data-capmode]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.capmode === capMode)
+      btn.addEventListener('click', () => {
+        capMode = btn.dataset.capmode
+        savePrefs()
+        document.querySelectorAll('[data-capmode]').forEach(b => b.classList.toggle('active', b === btn))
+      })
+    })
+
+    // Calidad
     document.querySelectorAll('[data-quality]').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.quality === quality)
       btn.addEventListener('click', () => {
@@ -75,6 +151,7 @@
       })
     })
 
+    // Cámara
     document.querySelectorAll('.cam-mode').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.cammode === camMode)
       btn.addEventListener('click', () => {
@@ -108,6 +185,46 @@
       }))
   }
 
+  // ── Estudio de grabación (preview + anotación en vivo) ──────────────────
+
+  function mountStudio () {
+    const studio = Recorder.getStudio()
+    if (!studio) return
+
+    const preview = document.getElementById('rec-preview')
+    preview.srcObject = studio.stream
+
+    // Sustituir el placeholder por el canvas real de anotaciones del pipeline
+    const placeholder = document.getElementById('rec-annotate')
+    const annotate = studio.annotationCanvas
+    annotate.id = 'rec-annotate'
+    annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
+    placeholder.replaceWith(annotate)
+
+    studioSurface = Tools.attach(annotate, {
+      getTool:  () => recTools.tool,
+      getColor: () => recTools.color,
+      getSize:  () => recTools.size,
+      onText: (x, y) => {
+        Tools.textInput({
+          canvas: annotate,
+          x, y,
+          color: recTools.color,
+          size: recTools.size,
+          onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
+        })
+      }
+    })
+    recTools.api = studioSurface
+  }
+
+  function teardownStudio () {
+    const preview = document.getElementById('rec-preview')
+    preview.srcObject = null
+    if (studioSurface) { studioSurface.destroy(); studioSurface = null }
+    recTools.api = null
+  }
+
   // ── Flujo de grabación ───────────────────────────────────────────────────
 
   async function startFlow () {
@@ -115,8 +232,7 @@
     const target = await Recorder.pickSaveTarget()
     if (target === 'cancelled') return
 
-    // 2. La vista previa se cierra: la cámara ahora se incrusta limpia en el
-    //    video (si quedara abierta, la ventana con sus controles saldría grabada)
+    // 2. La vista previa se cierra: la cámara se incrusta limpia en el video
     Bubble.close()
 
     // 3. Compartir pantalla + (opcional) seleccionar área + preparar recorder
@@ -142,35 +258,20 @@
     // 4. Cuenta regresiva — el recorder ya corre, así que pausamos durante el 3-2-1
     Recorder.togglePause()
     Devices.stopVuMeter()
-    await countdown(3)
+    await Tools.countdown(3)
     Recorder.togglePause()
 
-    document.querySelector('.rec-panel').classList.remove('paused')
+    document.querySelector('.rec-topbar').classList.remove('paused')
     document.getElementById('btn-pause').textContent = '‖ PAUSAR'
+    mountStudio()
     showView('rec')
     setStatus('GRABANDO')
-  }
-
-  function countdown (n) {
-    return new Promise(resolve => {
-      countdownEl.hidden = false
-      countdownNum.textContent = n
-      const iv = setInterval(() => {
-        n--
-        if (n <= 0) {
-          clearInterval(iv)
-          countdownEl.hidden = true
-          resolve()
-        } else {
-          countdownNum.textContent = n
-        }
-      }, 1000)
-    })
   }
 
   function onRecordingDone (result) {
     lastResult = result
     Bubble.close()
+    teardownStudio()
 
     const info = document.getElementById('done-info')
     const preview = document.getElementById('done-preview')
@@ -182,7 +283,6 @@
     if (result.saved === 'disk') {
       info.textContent = `Guardado directamente en tu PC: ${result.name} (${mb} MB)`
       btnDownload.hidden = true
-      // Preview desde el archivo ya escrito
       result.handle.getFile().then(f => {
         lastObjectUrl = URL.createObjectURL(f)
         preview.src = lastObjectUrl
@@ -206,8 +306,8 @@
     document.getElementById('btn-pause').addEventListener('click', () => {
       const state = Recorder.togglePause()
       document.getElementById('btn-pause').textContent = state === 'paused' ? '▶ REANUDAR' : '‖ PAUSAR'
-      document.querySelector('.rec-panel').classList.toggle('paused', state === 'paused')
-      setStatus(state === 'paused' ? 'EN PAUSA' : 'GRABANDO')
+      document.querySelector('.rec-topbar').classList.toggle('paused', state === 'paused')
+      setStatus(state === 'paused' ? 'EN PAUSA — puedes dibujar' : 'GRABANDO')
     })
 
     document.getElementById('btn-stop').addEventListener('click', () => Recorder.stop())
@@ -231,6 +331,51 @@
     })
   }
 
+  // ── Flujo de captura ─────────────────────────────────────────────────────
+
+  async function captureFlow () {
+    setStatus('CAPTURANDO…')
+    Object.values(views).forEach(v => { v.hidden = true })
+    let ok
+    try {
+      ok = await Capture.take(capMode)
+    } catch (err) {
+      showView('setup')
+      setStatus('LISTO')
+      if (err.name !== 'NotAllowedError') {
+        alert('No se pudo capturar: ' + err.name)
+        console.error('[SnapRec]', err)
+      }
+      return
+    }
+    if (ok) { showView('edit'); setStatus('EDITANDO') }
+    else { showView('setup'); setStatus('LISTO') }
+  }
+
+  function wireCaptureControls () {
+    document.getElementById('btn-capture').addEventListener('click', captureFlow)
+    document.getElementById('btn-recapture').addEventListener('click', captureFlow)
+
+    document.getElementById('btn-copy').addEventListener('click', async () => {
+      const btn = document.getElementById('btn-copy')
+      try {
+        await Capture.copyToClipboard()
+        btn.textContent = '✓ COPIADO'
+        setTimeout(() => { btn.textContent = '⧉ COPIAR' }, 1800)
+      } catch (err) {
+        alert('No se pudo copiar al portapapeles: ' + err.name)
+      }
+    })
+
+    document.getElementById('btn-download-png').addEventListener('click', () => Capture.download())
+
+    document.getElementById('btn-edit-close').addEventListener('click', () => {
+      Capture.teardown()
+      showView('setup')
+      setStatus('LISTO')
+    })
+  }
+
   // Aviso si intenta cerrar la pestaña mientras graba
   window.addEventListener('beforeunload', (e) => {
     if (Recorder.isRecording()) { e.preventDefault(); e.returnValue = '' }
@@ -241,8 +386,12 @@
   loadPrefs()
   if (checkSupport()) {
     Bubble.init()
+    recTools = wireToolbar('rec-tools')
+    editTools = wireToolbar('edit-tools')
+    Capture.init(editTools)
     wireOptions()
     wireRecordingControls()
+    wireCaptureControls()
     Devices.init()
   }
 })()

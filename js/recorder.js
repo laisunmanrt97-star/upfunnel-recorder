@@ -15,7 +15,8 @@ const Recorder = (() => {
   let micStream     = null
   let camStream     = null      // cámara incrustada en el video
   let mixCtx        = null
-  let cropStop      = null      // detiene el pipeline por canvas (área y/o cámara)
+  let cropStop      = null      // detiene el pipeline por canvas
+  let studio        = null      // { stream, annotationCanvas, width, height } para la UI
 
   let fileHandle    = null      // File System Access
   let writable      = null
@@ -92,14 +93,18 @@ const Recorder = (() => {
       catch (err) { console.warn('[SnapRec] Sin cámara, se graba sin ella:', err.name); camStream = null }
     }
 
-    // Con recorte o cámara → pipeline por canvas; si no, stream directo (0 CPU extra)
-    let videoTrackStream = displayStream
-    if (region || camStream) {
-      const piped = await Crop.createPipeline({
-        displayStream, region, camStream, camera, fps: preset.frameRate
-      })
-      videoTrackStream = piped.stream
-      cropStop = piped.stop
+    // Pipeline por canvas SIEMPRE: habilita la capa de anotaciones en vivo
+    // (señalar/enfatizar mientras grabas) además de recorte y cámara.
+    const piped = await Crop.createPipeline({
+      displayStream, region, camStream, camera, withAnnotations: true, fps: preset.frameRate
+    })
+    const videoTrackStream = piped.stream
+    cropStop = piped.stop
+    studio = {
+      stream: piped.stream,
+      annotationCanvas: piped.annotationCanvas,
+      width: piped.width,
+      height: piped.height
     }
 
     // ── Mezcla de audio: mic (siempre) + audio del sistema (si existe) ──
@@ -211,6 +216,7 @@ const Recorder = (() => {
   }
 
   function cleanupStreams () {
+    studio = null
     if (cropStop) { cropStop(); cropStop = null }
     if (displayStream) { displayStream.getTracks().forEach(t => t.stop()); displayStream = null }
     if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null }
@@ -222,5 +228,5 @@ const Recorder = (() => {
     return mediaRecorder !== null && mediaRecorder.state !== 'inactive'
   }
 
-  return { pickSaveTarget, start, togglePause, stop, isRecording }
+  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio }
 })()

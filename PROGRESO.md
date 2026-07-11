@@ -46,8 +46,18 @@ snaprec/
 | F2 | Grabación pantalla completa + guardado streaming | ✅ Código listo |
 | F3 | Burbuja de cámara (Document PiP) | ✅ Código listo |
 | F4 | Grabación de área (canvas crop) | ✅ Código listo |
-| F5 | Deploy al VPS (nginx + basic auth) | ⬜ Pendiente — necesita acceso/datos del VPS |
+| F5 | Deploy al VPS | 🔶 En proceso — Coolify de Gabriel, rama `main` lista |
 | F6 | Prueba real (tutorial de ~2 min con cámara + mic) | ⬜ Pendiente — la hace Gabriel en su Chrome |
+| F7 | Anotación en vivo al grabar (flechas, texto, resaltado…) | ✅ Código listo (2026-07-11) |
+| F8 | Modo CAPTURA con editor completo estilo SnapEdit | ✅ Código listo (2026-07-11) |
+
+### v1.2 — Estudio de anotación + modo captura (2026-07-11)
+
+- **Anotación en vivo**: el pipeline por canvas ahora corre SIEMPRE al grabar e incluye una capa de anotaciones entre la pantalla y la cámara. La vista de grabación es un "estudio": preview en vivo del video compuesto + toolbar (dibujo, resaltador, flecha, rect, elipse, texto, 6 tintas, grosor, deshacer, limpiar). Lo que dibujas queda grabado al instante. Pausar permite dibujar con calma y reanudar (las anotaciones persisten hasta LIMPIAR).
+- **Limitación del espejo**: si grabas la pantalla completa donde está SnapRec, al volver a la pestaña a dibujar, el video muestra SnapRec. Mitigación documentada en la UI: compartir una VENTANA para señalar en vivo, o pausar→dibujar→reanudar en pantalla completa. Solución de fondo (v2) sería overlay nativo en escritorio.
+- **Modo CAPTURA**: pestaña nueva junto a GRABAR. Flujo: compartir pantalla/ventana (una vez, el stream queda vivo entre capturas) → countdown 3s para cambiar a la app objetivo → beep + título de pestaña avisan → editor con todas las herramientas de SnapEdit (incluye censura, pixelado y recorte) → COPIAR al portapapeles o descargar PNG.
+- **tools.js**: módulo compartido de dibujo (portado de SnapEdit) usado por el estudio y el editor; undo/redo por snapshots, texto con input flotante, countdown reutilizable.
+- **Verificado** con streams sintéticos: el webm grabado contiene pantalla + anotaciones (flecha cian, trazo rojo) + cámara, cada capa en su posición esperada.
 
 ---
 
