@@ -15,7 +15,7 @@ Grabador de pantalla **web** para hacer videotutoriales sin congelar el PC (OBS 
 
 El video se guarda **directo al disco del PC** (File System Access API — la RAM no crece con la duración) como `.webm`. Un solo usuario, protegido con basic auth de nginx.
 
-Hermano de SnapEdit: mismo sistema de diseño terminal (negro `#0D0D0D` + verde `#00FF88`, JetBrains Mono, cero border-radius).
+Hermano de SnapEdit. Desde 2026-07-11 ambos usan el **ADN visual Upfunnel**: Jet Black `#080C14`, Cyan Blue `#00E5FF`, Pure White, Slate Mist `#94A3B8`, tipografía Inter, glow cian sutil, logo oficial en el header (`assets/upfunnel-logo-horizontal-blanco-transparente.png`, mín. 152 px de ancho, nunca recrearlo).
 
 ---
 

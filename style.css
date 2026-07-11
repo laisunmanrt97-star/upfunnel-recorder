@@ -1,23 +1,28 @@
-/* SnapRec — design system heredado de SnapEdit (terminal: negro + verde) */
+/* SnapRec — ADN visual Upfunnel
+   Paleta oficial: Jet Black #080C14 · Cyan Blue #00E5FF · Pure White #FFFFFF · Slate Mist #94A3B8
+   Tipografía única: Inter. Estética: futuristic minimalism, flat con profundidad sutil (glow cian). */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
 
 :root {
-  --bg:      #0D0D0D;
-  --surface: #141414;
-  --border:  #2A2A2A;
-  --text:    #E0E0E0;
-  --muted:   #555555;
-  --accent:  #00FF88;
-  --danger:  #FF4444;
-  --warn:    #FFCC00;
+  --uf-bg:     #080C14;                      /* Jet Black — fondo dominante */
+  --uf-accent: #00E5FF;                      /* Cyan Blue — CTAs, highlights, glow */
+  --uf-text:   #FFFFFF;                      /* Pure White — texto principal */
+  --uf-muted:  #94A3B8;                      /* Slate Mist — texto secundario */
+  --uf-surface: rgba(148, 163, 184, 0.06);   /* panel: Slate al 6% sobre Jet Black */
+  --uf-border:  rgba(148, 163, 184, 0.25);   /* borde sutil oficial */
+  --uf-accent-soft: rgba(0, 229, 255, 0.08);
+  --uf-glow: 0 0 24px rgba(0, 229, 255, 0.35);
+  --uf-font: 'Inter', 'Segoe UI', sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', monospace;
-  font-size: 13px;
+  background: var(--uf-bg);
+  color: var(--uf-text);
+  font-family: var(--uf-font);
+  font-size: 14px;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -27,13 +32,21 @@ body {
 #header {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 10px 16px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
+  gap: 20px;
+  padding: 14px 24px;
+  background: var(--uf-bg);
+  border-bottom: 1px solid var(--uf-border);
 }
-#header-title { color: var(--accent); letter-spacing: 3px; font-weight: bold; }
-#header-status { color: var(--muted); font-size: 11px; }
+#header-logo { width: 160px; display: block; }
+#header-title {
+  color: var(--uf-muted);
+  letter-spacing: 3px;
+  font-weight: 700;
+  font-size: 12px;
+  padding-left: 20px;
+  border-left: 1px solid var(--uf-border);
+}
+#header-status { color: var(--uf-muted); font-size: 12px; margin-left: auto; }
 
 /* ── Vistas ── */
 .view {
@@ -41,117 +54,129 @@ body {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 16px;
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
 }
 
 .panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  padding: 14px 16px;
+  background: var(--uf-surface);
+  border: 1px solid var(--uf-border);
+  border-radius: 8px;
+  padding: 16px 18px;
 }
 .panel h2 {
   font-size: 11px;
-  color: var(--muted);
+  color: var(--uf-muted);
   letter-spacing: 2px;
-  font-weight: normal;
-  margin-bottom: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin-bottom: 12px;
 }
-.danger-panel { border-color: var(--danger); }
-.danger-panel p:first-child { color: var(--danger); }
+.danger-panel { border-color: var(--uf-accent); }
+.danger-panel p:first-child { color: var(--uf-accent); }
 
-.muted { color: var(--muted); font-size: 11px; margin-top: 8px; line-height: 1.5; }
-.warn  { color: var(--warn);  font-size: 11px; margin-top: 8px; }
+.muted { color: var(--uf-muted); font-size: 12px; margin-top: 10px; line-height: 1.5; }
+.warn  { color: var(--uf-muted); font-size: 12px; margin-top: 10px; border-left: 2px solid var(--uf-accent); padding-left: 8px; }
 
 /* ── Botones ── */
-.btn-row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .opt-btn {
   background: none;
-  border: 1px solid var(--border);
-  color: var(--muted);
+  border: 1px solid var(--uf-border);
+  border-radius: 6px;
+  color: var(--uf-muted);
   font-family: inherit;
-  font-size: 12px;
-  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 9px 16px;
   cursor: pointer;
-  transition: color 0.1s, border-color 0.1s, background 0.1s;
+  transition: color 0.12s, border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
-.opt-btn:hover { color: var(--text); border-color: var(--text); }
+.opt-btn:hover { color: var(--uf-text); border-color: var(--uf-muted); }
 .opt-btn.active {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: rgba(0, 255, 136, 0.06);
+  color: var(--uf-accent);
+  border-color: var(--uf-accent);
+  background: var(--uf-accent-soft);
 }
-.opt-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+.opt-btn.danger:hover { color: var(--uf-text); border-color: var(--uf-text); background: rgba(255, 255, 255, 0.08); }
 
 .big-btn {
-  background: none;
-  border: 1px solid var(--accent);
-  color: var(--accent);
+  background: var(--uf-accent);
+  border: none;
+  border-radius: 6px;
+  color: var(--uf-bg);
   font-family: inherit;
   font-size: 15px;
-  letter-spacing: 2px;
-  padding: 14px 28px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  padding: 15px 30px;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: box-shadow 0.15s, transform 0.15s;
 }
-.big-btn:hover { background: rgba(0, 255, 136, 0.1); }
+.big-btn:hover { box-shadow: var(--uf-glow); }
 
 .opt-btn:focus-visible, .big-btn:focus-visible, select:focus-visible {
-  outline: 1px solid var(--accent);
+  outline: 2px solid var(--uf-accent);
   outline-offset: 2px;
 }
 
 /* ── Selects ── */
 select {
   width: 100%;
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
+  background: var(--uf-bg);
+  border: 1px solid var(--uf-border);
+  border-radius: 6px;
+  color: var(--uf-text);
   font-family: inherit;
-  font-size: 12px;
-  padding: 8px;
+  font-size: 13px;
+  padding: 9px;
   cursor: pointer;
 }
 
 /* ── Vúmetro ── */
 #vu-wrap {
-  margin-top: 10px;
-  height: 8px;
-  background: var(--bg);
-  border: 1px solid var(--border);
+  margin-top: 12px;
+  height: 6px;
+  background: var(--uf-bg);
+  border: 1px solid var(--uf-border);
+  border-radius: 3px;
   overflow: hidden;
 }
 #vu-bar {
   height: 100%;
   width: 0%;
-  background: var(--accent);
+  background: var(--uf-accent);
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
   transition: width 0.06s linear;
 }
 
 /* ── Vista grabando ── */
-.rec-panel { text-align: center; padding: 32px 16px; }
-.rec-panel .btn-row { justify-content: center; margin-top: 18px; }
-#rec-indicator { color: var(--danger); letter-spacing: 3px; font-size: 14px; }
-#rec-dot { animation: blink 1.2s infinite; }
+.rec-panel { text-align: center; padding: 36px 16px; }
+.rec-panel .btn-row { justify-content: center; margin-top: 20px; }
+#rec-indicator { color: var(--uf-accent); letter-spacing: 4px; font-size: 14px; font-weight: 700; }
+#rec-dot { animation: blink 1.2s infinite; text-shadow: 0 0 12px rgba(0, 229, 255, 0.8); }
 @keyframes blink { 0%, 60% { opacity: 1 } 61%, 100% { opacity: 0.15 } }
 #rec-timer {
-  font-size: 42px;
-  color: var(--text);
-  letter-spacing: 4px;
+  font-size: 46px;
+  font-weight: 800;
+  color: var(--uf-text);
+  letter-spacing: 3px;
   margin: 14px 0 4px;
+  font-variant-numeric: tabular-nums;
 }
-.paused #rec-indicator { color: var(--warn); }
-.paused #rec-dot { animation: none; }
+.paused #rec-indicator { color: var(--uf-muted); }
+.paused #rec-dot { animation: none; text-shadow: none; }
 
 /* ── Vista resultado ── */
 #done-preview {
   width: 100%;
   max-height: 50vh;
   margin: 12px 0;
-  border: 1px solid var(--border);
+  border: 1px solid var(--uf-border);
+  border-radius: 8px;
   background: #000;
 }
 #view-done .btn-row { margin-top: 12px; }
@@ -162,11 +187,12 @@ select {
   padding: 8px;
   align-items: center;
 }
-#area-hint { color: var(--accent); font-size: 12px; margin-bottom: 8px; }
+#area-hint { color: var(--uf-accent); font-size: 13px; font-weight: 500; margin-bottom: 8px; }
 #area-stage { position: relative; line-height: 0; }
 #area-frame, #area-select {
   max-width: 100%;
-  border: 1px solid var(--border);
+  border: 1px solid var(--uf-border);
+  border-radius: 6px;
 }
 #area-select {
   position: absolute;
@@ -178,7 +204,7 @@ select {
 #countdown {
   position: fixed;
   inset: 0;
-  background: rgba(13, 13, 13, 0.85);
+  background: rgba(8, 12, 20, 0.88);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -186,19 +212,21 @@ select {
 }
 #countdown-num {
   font-size: 120px;
-  color: var(--accent);
+  font-weight: 800;
+  color: var(--uf-accent);
+  text-shadow: 0 0 40px rgba(0, 229, 255, 0.5);
 }
 
 /* ── Statusbar ── */
 #statusbar {
   display: flex;
   gap: 24px;
-  padding: 8px 16px;
-  background: var(--surface);
-  border-top: 1px solid var(--border);
+  padding: 10px 24px;
+  background: var(--uf-bg);
+  border-top: 1px solid var(--uf-border);
   font-size: 11px;
-  color: var(--muted);
+  color: var(--uf-muted);
 }
-.status-item span { color: var(--text); }
+.status-item span { color: var(--uf-text); }
 
 [hidden] { display: none !important; }

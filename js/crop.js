@@ -84,11 +84,11 @@ const Crop = (() => {
           const w = Math.abs(cx - sx), h = Math.abs(cy - sy)
           if (w > 2 && h > 2) {
             // Oscurecer lo NO seleccionado
-            ctx.fillStyle = 'rgba(13, 13, 13, 0.6)'
+            ctx.fillStyle = 'rgba(8, 12, 20, 0.6)'
             ctx.fillRect(0, 0, nativeW, nativeH)
             ctx.clearRect(x, y, w, h)
             // Borde punteado animado
-            ctx.strokeStyle = '#00FF88'
+            ctx.strokeStyle = '#00E5FF'
             ctx.lineWidth = 2
             ctx.setLineDash([8, 4])
             ctx.lineDashOffset = dashOffset
@@ -96,12 +96,12 @@ const Crop = (() => {
             // Dimensiones
             ctx.setLineDash([])
             const label = `${w} × ${h} px`
-            ctx.font = '16px JetBrains Mono, monospace'
+            ctx.font = '600 16px Inter, sans-serif'
             const tw = ctx.measureText(label).width
             const ly = y > 30 ? y - 10 : y + h + 24
-            ctx.fillStyle = 'rgba(0, 0, 0, 0.75)'
+            ctx.fillStyle = 'rgba(8, 12, 20, 0.85)'
             ctx.fillRect(x + w / 2 - tw / 2 - 8, ly - 18, tw + 16, 24)
-            ctx.fillStyle = '#00FF88'
+            ctx.fillStyle = '#00E5FF'
             ctx.fillText(label, x + w / 2 - tw / 2, ly)
           }
         }

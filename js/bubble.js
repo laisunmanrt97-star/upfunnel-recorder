@@ -62,7 +62,7 @@ const Bubble = (() => {
     }
 
     const doc = pipWindow.document
-    doc.body.style.cssText = 'margin:0;background:#0D0D0D;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100vh;'
+    doc.body.style.cssText = 'margin:0;background:#080C14;overflow:hidden;display:flex;align-items:center;justify-content:center;height:100vh;'
     const video = doc.createElement('video')
     video.autoplay = true
     video.muted = true
@@ -86,9 +86,9 @@ const Bubble = (() => {
     const vh = doc.defaultView.innerHeight
     const side = Math.min(vw, vh)
     if (shape === 'circle') {
-      video.style.cssText = `width:${side}px;height:${side}px;object-fit:cover;border-radius:50%;border:2px solid #00FF88;box-sizing:border-box;`
+      video.style.cssText = `width:${side}px;height:${side}px;object-fit:cover;border-radius:50%;border:2px solid #00E5FF;box-sizing:border-box;`
     } else {
-      video.style.cssText = `width:${vw}px;height:${vh}px;object-fit:cover;border:2px solid #00FF88;box-sizing:border-box;`
+      video.style.cssText = `width:${vw}px;height:${vh}px;object-fit:cover;border-radius:8px;border:2px solid #00E5FF;box-sizing:border-box;`
     }
   }
 
