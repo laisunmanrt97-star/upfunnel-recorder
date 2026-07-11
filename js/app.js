@@ -228,14 +228,15 @@
   // ── Flujo de grabación ───────────────────────────────────────────────────
 
   async function startFlow () {
-    // 1. Elegir destino DENTRO del gesto de click
-    const target = await Recorder.pickSaveTarget()
-    if (target === 'cancelled') return
+    // El video se graba en memoria; al TERMINAR el usuario decide si lo
+    // descarga (decisión de producto: sin diálogo de guardado antes de
+    // grabar; si no descarga, no se guarda). El guardado en streaming a
+    // disco sigue disponible en Recorder.pickSaveTarget para el futuro.
 
-    // 2. La vista previa se cierra: la cámara se incrusta limpia en el video
+    // 1. La vista previa se cierra: la cámara se incrusta limpia en el video
     Bubble.close()
 
-    // 3. Compartir pantalla + (opcional) seleccionar área + preparar recorder
+    // 2. Compartir pantalla + (opcional) seleccionar área + preparar recorder
     setStatus('PREPARANDO…')
     Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
     const camera = camMode === 'embed'
@@ -255,7 +256,7 @@
     }
     if (!started) { showView('setup'); setStatus('LISTO'); return }   // canceló la selección de área
 
-    // 4. Cuenta regresiva — el recorder ya corre, así que pausamos durante el 3-2-1
+    // 3. Cuenta regresiva — el recorder ya corre, así que pausamos durante el 3-2-1
     Recorder.togglePause()
     Devices.stopVuMeter()
     await Tools.countdown(3)
@@ -289,7 +290,7 @@
         preview.hidden = false
       }).catch(() => { preview.hidden = true })
     } else {
-      info.textContent = `${result.name} (${mb} MB) — descárgalo con el botón`
+      info.textContent = `${result.name} (${mb} MB) — revísalo y descárgalo. Si sales sin descargar, la grabación se pierde.`
       lastObjectUrl = URL.createObjectURL(result.blob)
       preview.src = lastObjectUrl
       preview.hidden = false
