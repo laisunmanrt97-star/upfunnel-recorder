@@ -57,7 +57,9 @@ snaprec/
 - **Codec**: se intenta `h264` (encode por hardware si el navegador lo da), luego `vp8`. Salida `.webm` — YouTube lo acepta directo.
 - **Guardado en streaming**: `showSaveFilePicker` se llama DENTRO del click (la activación de usuario expira tras awaits largos); los chunks de MediaRecorder (1/segundo) se escriben directo al archivo. Fallback a Blob en memoria si el navegador no soporta la API.
 - **Countdown sin grabar basura**: el recorder arranca, se pausa durante el 3-2-1 y se reanuda al llegar a 0.
-- **Burbuja**: se abre con su propio botón (gesto de usuario propio — Document PiP lo exige). Al cambiar cámara/forma/tamaño con la burbuja abierta, se reabre.
+- **Cámara incrustada (2026-07-11)**: la ventana Document PiP trae chrome de Chrome (barra de título "localhost", controles al hover) que salía grabado — rechazado por el usuario. Ahora la cámara se **composita dentro del video** vía el pipeline de canvas (círculo o rectángulo limpio con borde cian, esquina configurable ↖↗↙↘, tamaños S/M/L). La ventana PiP quedó como **vista previa** para encuadrarse antes de grabar: se cierra sola al iniciar (si quedara abierta saldría duplicada en el video). Verificado end-to-end con streams sintéticos: píxel de cámara en la esquina correcta del webm resultante.
+- **Costo del compositor**: con cámara incrustada (o modo área) el video pasa por canvas → más CPU que la captura directa. Si el PC sufre: preset LIGERA 15fps. Sin cámara y pantalla completa sigue siendo captura directa (0 CPU extra).
+- **Burbuja/vista previa**: se abre con su propio botón (gesto de usuario propio — Document PiP lo exige). Al cambiar cámara/forma/tamaño con la vista previa abierta, se reabre.
 - **Modo área**: única parte que re-encodea vía canvas (más CPU). Advertencia visible en la UI. Dimensiones del recorte forzadas a pares (requisito de algunos encoders).
 - **Botón nativo "Dejar de compartir"** de Chrome = stop (listener en `ended` del video track).
 

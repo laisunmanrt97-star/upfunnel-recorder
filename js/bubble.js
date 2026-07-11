@@ -108,7 +108,7 @@ const Bubble = (() => {
   }
 
   function updateButton () {
-    btnBubble.textContent = `BURBUJA: ${pipWindow ? 'ON' : 'OFF'}`
+    btnBubble.textContent = `VISTA PREVIA: ${pipWindow ? 'ON' : 'OFF'}`
     btnBubble.classList.toggle('active', !!pipWindow)
   }
 

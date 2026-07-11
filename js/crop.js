@@ -1,5 +1,7 @@
-// SnapRec — modo área: selección sobre un frame congelado + pipeline de recorte
-// Patrón visual heredado del overlay de SnapEdit (borde punteado verde animado).
+// SnapRec — pipeline de video por canvas:
+//  1) selectArea(): selección de rectángulo sobre un frame congelado (modo área)
+//  2) createPipeline(): compone pantalla (+recorte) (+cámara incrustada como
+//     círculo/rectángulo limpio, sin marcos de ventana) → canvas.captureStream
 // Expone window.Crop
 
 const Crop = (() => {
@@ -7,21 +9,31 @@ const Crop = (() => {
   const frameCv   = document.getElementById('area-frame')
   const selectCv  = document.getElementById('area-select')
 
-  // Muestra el frame congelado, deja seleccionar un rectángulo y devuelve
-  // { stream, stop } con el video recortado, o null si el usuario cancela.
-  async function selectAndCrop (displayStream, fps) {
-    const srcVideo = document.createElement('video')
-    srcVideo.srcObject = displayStream
-    srcVideo.muted = true
-    await srcVideo.play()
-    // Esperar dimensiones reales
-    if (!srcVideo.videoWidth) {
-      await new Promise(r => srcVideo.addEventListener('loadedmetadata', r, { once: true }))
+  // Tamaño de la cámara incrustada como fracción del lado menor del video
+  const CAM_SIZES = { s: 0.18, m: 0.25, l: 0.33 }
+  const CAM_MARGIN = 24
+
+  // ── Utilidad: video oculto reproduciendo un stream ────────────────────────
+
+  async function playStream (stream) {
+    const v = document.createElement('video')
+    v.srcObject = stream
+    v.muted = true
+    v.playsInline = true
+    await v.play()
+    if (!v.videoWidth) {
+      await new Promise(r => v.addEventListener('loadedmetadata', r, { once: true }))
     }
+    return v
+  }
+
+  // ── Selección de área (devuelve región en píxeles nativos, o null) ───────
+
+  async function selectArea (displayStream) {
+    const srcVideo = await playStream(displayStream)
     const nativeW = srcVideo.videoWidth
     const nativeH = srcVideo.videoHeight
 
-    // Frame congelado para seleccionar encima
     frameCv.width = nativeW
     frameCv.height = nativeH
     frameCv.getContext('2d').drawImage(srcVideo, 0, 0)
@@ -29,33 +41,84 @@ const Crop = (() => {
     selectCv.height = nativeH
 
     const region = await runSelection(nativeW, nativeH)
-    if (!region) {
-      srcVideo.srcObject = null
-      return null
+    srcVideo.srcObject = null
+    return region
+  }
+
+  // ── Pipeline compositor ───────────────────────────────────────────────────
+  // opts: { displayStream, region|null, camStream|null, camera: {shape, size, corner}, fps }
+
+  async function createPipeline ({ displayStream, region, camStream, camera, fps }) {
+    const srcVideo = await playStream(displayStream)
+    const camVideo = camStream ? await playStream(camStream) : null
+
+    const outW = region ? region.w : srcVideo.videoWidth
+    const outH = region ? region.h : srcVideo.videoHeight
+
+    const cv = document.createElement('canvas')
+    cv.width = outW
+    cv.height = outH
+    const ctx = cv.getContext('2d')
+
+    function drawCam () {
+      const base = Math.round(Math.min(outW, outH) * (CAM_SIZES[camera.size] || CAM_SIZES.m))
+      const isCircle = camera.shape !== 'rect'
+      const w = isCircle ? base : Math.round(base * 1.33)
+      const h = base
+      const x = camera.corner.includes('l') ? CAM_MARGIN : outW - w - CAM_MARGIN
+      const y = camera.corner.includes('t') ? CAM_MARGIN : outH - h - CAM_MARGIN
+
+      // Recorte "cover" del frame de la cámara al aspecto destino
+      const cw = camVideo.videoWidth, ch = camVideo.videoHeight
+      const srcAspect = cw / ch, dstAspect = w / h
+      let sw, sh
+      if (srcAspect > dstAspect) { sh = ch; sw = ch * dstAspect } else { sw = cw; sh = cw / dstAspect }
+      const sx = (cw - sw) / 2, sy = (ch - sh) / 2
+
+      ctx.save()
+      ctx.beginPath()
+      if (isCircle) {
+        ctx.arc(x + w / 2, y + h / 2, w / 2, 0, Math.PI * 2)
+      } else {
+        ctx.roundRect(x, y, w, h, 10)
+      }
+      ctx.clip()
+      ctx.drawImage(camVideo, sx, sy, sw, sh, x, y, w, h)
+      ctx.restore()
+
+      // Borde cian de marca
+      ctx.beginPath()
+      if (isCircle) ctx.arc(x + w / 2, y + h / 2, w / 2 - 1, 0, Math.PI * 2)
+      else ctx.roundRect(x + 1, y + 1, w - 2, h - 2, 10)
+      ctx.strokeStyle = '#00E5FF'
+      ctx.lineWidth = 3
+      ctx.stroke()
     }
 
-    // ── Pipeline de recorte: video → canvas recortado → captureStream ──
-    const cropCv = document.createElement('canvas')
-    cropCv.width = region.w
-    cropCv.height = region.h
-    const cropCtx = cropCv.getContext('2d')
+    function drawFrame () {
+      if (region) {
+        ctx.drawImage(srcVideo, region.x, region.y, region.w, region.h, 0, 0, outW, outH)
+      } else {
+        ctx.drawImage(srcVideo, 0, 0, outW, outH)
+      }
+      if (camVideo) drawCam()
+    }
 
-    const interval = setInterval(() => {
-      cropCtx.drawImage(srcVideo, region.x, region.y, region.w, region.h, 0, 0, region.w, region.h)
-    }, 1000 / fps)
-
-    const stream = cropCv.captureStream(fps)
+    drawFrame()
+    const interval = setInterval(drawFrame, 1000 / fps)
+    const stream = cv.captureStream(fps)
 
     return {
       stream,
       stop: () => {
         clearInterval(interval)
         srcVideo.srcObject = null
+        if (camVideo) camVideo.srcObject = null
       }
     }
   }
 
-  // ── Selección con mouse (estética SnapEdit) ───────────────────────────────
+  // ── Selección con mouse (estética Upfunnel) ───────────────────────────────
 
   function runSelection (nativeW, nativeH) {
     return new Promise(resolve => {
@@ -150,5 +213,5 @@ const Crop = (() => {
     })
   }
 
-  return { selectAndCrop }
+  return { selectArea, createPipeline }
 })()

@@ -13,6 +13,8 @@
 
   let mode = 'full'         // full | area
   let quality = 'native24'
+  let camMode = 'embed'     // embed | off
+  let camCorner = 'br'      // tl | tr | bl | br
   let lastResult = null
   let lastObjectUrl = null
 
@@ -23,10 +25,12 @@
       const p = JSON.parse(localStorage.getItem(PREF_KEY)) || {}
       if (p.mode) mode = p.mode
       if (p.quality) quality = p.quality
+      if (p.camMode) camMode = p.camMode
+      if (p.camCorner) camCorner = p.camCorner
     } catch {}
   }
   function savePrefs () {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ mode, quality }))
+    localStorage.setItem(PREF_KEY, JSON.stringify({ mode, quality, camMode, camCorner }))
   }
 
   function showView (name) {
@@ -71,6 +75,26 @@
       })
     })
 
+    document.querySelectorAll('.cam-mode').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.cammode === camMode)
+      btn.addEventListener('click', () => {
+        camMode = btn.dataset.cammode
+        savePrefs()
+        document.querySelectorAll('.cam-mode').forEach(b => b.classList.toggle('active', b === btn))
+        document.getElementById('cam-embed-opts').style.opacity = camMode === 'embed' ? '1' : '0.35'
+      })
+    })
+    document.getElementById('cam-embed-opts').style.opacity = camMode === 'embed' ? '1' : '0.35'
+
+    document.querySelectorAll('.cam-corner').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.corner === camCorner)
+      btn.addEventListener('click', () => {
+        camCorner = btn.dataset.corner
+        savePrefs()
+        document.querySelectorAll('.cam-corner').forEach(b => b.classList.toggle('active', b === btn))
+      })
+    })
+
     document.getElementById('btn-bubble').addEventListener('click', () => Bubble.toggle())
     document.querySelectorAll('.bubble-opt').forEach(btn =>
       btn.addEventListener('click', () => {
@@ -91,12 +115,19 @@
     const target = await Recorder.pickSaveTarget()
     if (target === 'cancelled') return
 
-    // 2. Compartir pantalla + (opcional) seleccionar área + preparar recorder
+    // 2. La vista previa se cierra: la cámara ahora se incrusta limpia en el
+    //    video (si quedara abierta, la ventana con sus controles saldría grabada)
+    Bubble.close()
+
+    // 3. Compartir pantalla + (opcional) seleccionar área + preparar recorder
     setStatus('PREPARANDO…')
     Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
+    const camera = camMode === 'embed'
+      ? { shape: Bubble.getShape(), size: Bubble.getSize(), corner: camCorner }
+      : null
     let started
     try {
-      started = await Recorder.start({ mode, quality, onStop: onRecordingDone })
+      started = await Recorder.start({ mode, quality, camera, onStop: onRecordingDone })
     } catch (err) {
       showView('setup')
       setStatus('LISTO')
@@ -108,7 +139,7 @@
     }
     if (!started) { showView('setup'); setStatus('LISTO'); return }   // canceló la selección de área
 
-    // 3. Cuenta regresiva — el recorder ya corre, así que pausamos durante el 3-2-1
+    // 4. Cuenta regresiva — el recorder ya corre, así que pausamos durante el 3-2-1
     Recorder.togglePause()
     Devices.stopVuMeter()
     await countdown(3)

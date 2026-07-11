@@ -13,8 +13,9 @@ const Recorder = (() => {
   let mediaRecorder = null
   let displayStream = null
   let micStream     = null
+  let camStream     = null      // cámara incrustada en el video
   let mixCtx        = null
-  let cropStop      = null      // función para detener el pipeline de recorte (modo área)
+  let cropStop      = null      // detiene el pipeline por canvas (área y/o cámara)
 
   let fileHandle    = null      // File System Access
   let writable      = null
@@ -62,7 +63,8 @@ const Recorder = (() => {
 
   // ── Iniciar grabación ─────────────────────────────────────────────────────
   // mode: 'full' | 'area'   quality: clave de PRESETS
-  async function start ({ mode, quality, onStop }) {
+  // camera: null | { shape, size, corner } → se incrusta limpia en el video
+  async function start ({ mode, quality, camera, onStop }) {
     onStopCallback = onStop
     const preset = PRESETS[quality] || PRESETS.native24
 
@@ -78,12 +80,26 @@ const Recorder = (() => {
     displayStream.getVideoTracks()[0].addEventListener('ended', () => stop())
 
     // Modo área: el usuario selecciona un rectángulo sobre un frame congelado
-    let videoTrackStream = displayStream
+    let region = null
     if (mode === 'area') {
-      const cropped = await Crop.selectAndCrop(displayStream, preset.frameRate)
-      if (!cropped) { cleanupStreams(); return false }  // canceló con ESC
-      videoTrackStream = cropped.stream
-      cropStop = cropped.stop
+      region = await Crop.selectArea(displayStream)
+      if (!region) { cleanupStreams(); return false }  // canceló con ESC
+    }
+
+    // Cámara incrustada (círculo/rectángulo limpio dibujado dentro del video)
+    if (camera) {
+      try { camStream = await Devices.getCamStream() }
+      catch (err) { console.warn('[SnapRec] Sin cámara, se graba sin ella:', err.name); camStream = null }
+    }
+
+    // Con recorte o cámara → pipeline por canvas; si no, stream directo (0 CPU extra)
+    let videoTrackStream = displayStream
+    if (region || camStream) {
+      const piped = await Crop.createPipeline({
+        displayStream, region, camStream, camera, fps: preset.frameRate
+      })
+      videoTrackStream = piped.stream
+      cropStop = piped.stop
     }
 
     // ── Mezcla de audio: mic (siempre) + audio del sistema (si existe) ──
@@ -198,6 +214,7 @@ const Recorder = (() => {
     if (cropStop) { cropStop(); cropStop = null }
     if (displayStream) { displayStream.getTracks().forEach(t => t.stop()); displayStream = null }
     if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null }
+    if (camStream) { camStream.getTracks().forEach(t => t.stop()); camStream = null }
     if (mixCtx) { mixCtx.close().catch(() => {}); mixCtx = null }
   }
 

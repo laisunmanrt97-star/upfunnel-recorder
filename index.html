@@ -56,15 +56,25 @@
     <section class="panel">
       <h2>[ CÁMARA ]</h2>
       <select id="cam-select" aria-label="Seleccionar cámara"></select>
-      <div class="btn-row">
-        <button id="btn-bubble" class="opt-btn" aria-label="Activar o desactivar burbuja de cámara">BURBUJA: OFF</button>
-        <button class="opt-btn bubble-opt active" data-shape="circle" aria-label="Burbuja circular">○</button>
-        <button class="opt-btn bubble-opt" data-shape="rect" aria-label="Burbuja rectangular">□</button>
-        <button class="opt-btn bubble-size" data-size="s" aria-label="Burbuja pequeña">S</button>
-        <button class="opt-btn bubble-size active" data-size="m" aria-label="Burbuja mediana">M</button>
-        <button class="opt-btn bubble-size" data-size="l" aria-label="Burbuja grande">L</button>
+      <div class="btn-row" role="radiogroup" aria-label="Cámara en el video">
+        <button class="opt-btn cam-mode active" data-cammode="embed" aria-label="Incrustar cámara en el video">EN EL VIDEO</button>
+        <button class="opt-btn cam-mode" data-cammode="off" aria-label="Grabar sin cámara">SIN CÁMARA</button>
       </div>
-      <p class="muted">La burbuja flota sobre la pantalla y queda grabada dentro del video.</p>
+      <div class="btn-row" id="cam-embed-opts" style="margin-top:8px">
+        <button class="opt-btn bubble-opt active" data-shape="circle" aria-label="Forma circular">○</button>
+        <button class="opt-btn bubble-opt" data-shape="rect" aria-label="Forma rectangular">□</button>
+        <button class="opt-btn bubble-size" data-size="s" aria-label="Tamaño pequeño">S</button>
+        <button class="opt-btn bubble-size active" data-size="m" aria-label="Tamaño mediano">M</button>
+        <button class="opt-btn bubble-size" data-size="l" aria-label="Tamaño grande">L</button>
+        <button class="opt-btn cam-corner" data-corner="tl" aria-label="Esquina superior izquierda">↖</button>
+        <button class="opt-btn cam-corner" data-corner="tr" aria-label="Esquina superior derecha">↗</button>
+        <button class="opt-btn cam-corner" data-corner="bl" aria-label="Esquina inferior izquierda">↙</button>
+        <button class="opt-btn cam-corner active" data-corner="br" aria-label="Esquina inferior derecha">↘</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px">
+        <button id="btn-bubble" class="opt-btn" aria-label="Abrir o cerrar vista previa de la cámara">VISTA PREVIA: OFF</button>
+      </div>
+      <p class="muted">Tu cámara se dibuja limpia dentro del video (solo el círculo, sin marcos ni controles), en la esquina que elijas. La vista previa es solo para ti — se cierra sola al grabar y no aparece en el video.</p>
     </section>
 
     <!-- Grabar -->
