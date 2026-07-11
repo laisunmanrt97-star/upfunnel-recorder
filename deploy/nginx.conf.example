@@ -1,0 +1,49 @@
+# SnapRec — configuración de ejemplo para nginx en el VPS
+#
+# Requisitos previos en el VPS:
+#   1. Copiar los archivos del proyecto a /var/www/snaprec
+#      (index.html, style.css, js/ — NO hace falta deploy/ ni PROGRESO.md)
+#   2. Crear la clave de acceso (un solo usuario):
+#        sudo apt install apache2-utils     # si no está htpasswd
+#        sudo htpasswd -c /etc/nginx/.htpasswd-snaprec gabriel
+#   3. Incluir este bloque en tu server {} HTTPS existente y recargar:
+#        sudo nginx -t && sudo systemctl reload nginx
+#
+# IMPORTANTE: debe servirse por HTTPS — los navegadores bloquean
+# getDisplayMedia/getUserMedia en sitios http:// (excepto localhost).
+
+# ── Opción A: como ruta dentro de tu dominio actual ──────────────────────────
+# https://tudominio.com/rec/
+
+location /rec/ {
+    alias /var/www/snaprec/;
+    index index.html;
+
+    auth_basic           "SnapRec";
+    auth_basic_user_file /etc/nginx/.htpasswd-snaprec;
+
+    # Estos headers dan mejor aislamiento y habilitan APIs de captura
+    add_header Cross-Origin-Opener-Policy same-origin;
+    add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)";
+}
+
+# ── Opción B: como subdominio ─────────────────────────────────────────────────
+# https://rec.tudominio.com  (requiere DNS del subdominio + cert; con
+# wildcard o certbot --nginx -d rec.tudominio.com)
+#
+# server {
+#     listen 443 ssl;
+#     server_name rec.tudominio.com;
+#
+#     ssl_certificate     /etc/letsencrypt/live/tudominio.com/fullchain.pem;
+#     ssl_certificate_key /etc/letsencrypt/live/tudominio.com/privkey.pem;
+#
+#     root /var/www/snaprec;
+#     index index.html;
+#
+#     auth_basic           "SnapRec";
+#     auth_basic_user_file /etc/nginx/.htpasswd-snaprec;
+#
+#     add_header Cross-Origin-Opener-Policy same-origin;
+#     add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)";
+# }

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SnapRec</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <div id="header">
+    <span id="header-title">SNAPREC</span>
+    <span id="header-status">LISTO</span>
+  </div>
+
+  <!-- ══ VISTA: SETUP ══════════════════════════════════════════════ -->
+  <main id="view-setup" class="view">
+
+    <div id="unsupported" class="panel danger-panel" hidden>
+      <p>⚠ Este navegador no soporta las funciones de grabación.</p>
+      <p class="muted">Usa Google Chrome o Microsoft Edge actualizados.</p>
+    </div>
+
+    <!-- Modo -->
+    <section class="panel">
+      <h2>[ MODO ]</h2>
+      <div class="btn-row" role="radiogroup" aria-label="Modo de grabación">
+        <button class="opt-btn active" data-mode="full" aria-label="Grabar pantalla completa">PANTALLA COMPLETA</button>
+        <button class="opt-btn" data-mode="area" aria-label="Grabar área seleccionada">ÁREA</button>
+      </div>
+      <p id="area-warning" class="warn" hidden>⚠ El modo área usa más CPU. Si tu PC sufre, usa pantalla completa.</p>
+    </section>
+
+    <!-- Calidad -->
+    <section class="panel">
+      <h2>[ CALIDAD ]</h2>
+      <div class="btn-row" role="radiogroup" aria-label="Calidad de grabación">
+        <button class="opt-btn active" data-quality="native24" aria-label="Calidad nativa 24 fps">NATIVA · 24 FPS</button>
+        <button class="opt-btn" data-quality="light15" aria-label="Calidad ligera 15 fps">LIGERA · 15 FPS</button>
+        <button class="opt-btn" data-quality="hd720" aria-label="Calidad 720p 24 fps">720P · 24 FPS</button>
+      </div>
+    </section>
+
+    <!-- Micrófono -->
+    <section class="panel">
+      <h2>[ MICRÓFONO ]</h2>
+      <select id="mic-select" aria-label="Seleccionar micrófono"></select>
+      <div id="vu-wrap" aria-hidden="true">
+        <div id="vu-bar"></div>
+      </div>
+      <p class="muted">Habla — la barra debe moverse si tu micrófono funciona.</p>
+    </section>
+
+    <!-- Cámara -->
+    <section class="panel">
+      <h2>[ CÁMARA ]</h2>
+      <select id="cam-select" aria-label="Seleccionar cámara"></select>
+      <div class="btn-row">
+        <button id="btn-bubble" class="opt-btn" aria-label="Activar o desactivar burbuja de cámara">BURBUJA: OFF</button>
+        <button class="opt-btn bubble-opt active" data-shape="circle" aria-label="Burbuja circular">○</button>
+        <button class="opt-btn bubble-opt" data-shape="rect" aria-label="Burbuja rectangular">□</button>
+        <button class="opt-btn bubble-size" data-size="s" aria-label="Burbuja pequeña">S</button>
+        <button class="opt-btn bubble-size active" data-size="m" aria-label="Burbuja mediana">M</button>
+        <button class="opt-btn bubble-size" data-size="l" aria-label="Burbuja grande">L</button>
+      </div>
+      <p class="muted">La burbuja flota sobre la pantalla y queda grabada dentro del video.</p>
+    </section>
+
+    <!-- Grabar -->
+    <section class="panel">
+      <button id="btn-record" class="big-btn" aria-label="Iniciar grabación">● GRABAR</button>
+      <p class="muted">Al iniciar: eliges dónde guardar el video → Chrome te pide qué pantalla compartir → cuenta regresiva de 3 segundos.</p>
+    </section>
+
+  </main>
+
+  <!-- ══ VISTA: SELECCIÓN DE ÁREA ══════════════════════════════════ -->
+  <div id="view-area" class="view" hidden>
+    <p id="area-hint">Arrastra para seleccionar el área a grabar — ESC cancela</p>
+    <div id="area-stage">
+      <canvas id="area-frame"></canvas>
+      <canvas id="area-select"></canvas>
+    </div>
+  </div>
+
+  <!-- ══ VISTA: GRABANDO ═══════════════════════════════════════════ -->
+  <main id="view-rec" class="view" hidden>
+    <div class="panel rec-panel">
+      <div id="rec-indicator"><span id="rec-dot">●</span> REC</div>
+      <div id="rec-timer">00:00</div>
+      <div class="btn-row">
+        <button id="btn-pause" class="opt-btn" aria-label="Pausar o reanudar grabación">‖ PAUSAR</button>
+        <button id="btn-stop" class="opt-btn danger" aria-label="Detener grabación">■ DETENER</button>
+      </div>
+      <p class="muted">Puedes minimizar esta pestaña — la grabación sigue.<br>
+      También puedes detener con la barra "Dejar de compartir" de Chrome.</p>
+    </div>
+  </main>
+
+  <!-- ══ VISTA: RESULTADO ══════════════════════════════════════════ -->
+  <main id="view-done" class="view" hidden>
+    <div class="panel">
+      <h2>[ GRABACIÓN LISTA ]</h2>
+      <p id="done-info" class="muted"></p>
+      <video id="done-preview" controls hidden></video>
+      <div class="btn-row">
+        <button id="btn-download" class="big-btn" hidden aria-label="Descargar video">↓ DESCARGAR</button>
+        <button id="btn-again" class="big-btn" aria-label="Hacer otra grabación">● GRABAR OTRO</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ══ COUNTDOWN ═════════════════════════════════════════════════ -->
+  <div id="countdown" hidden><span id="countdown-num">3</span></div>
+
+  <div id="statusbar">
+    <div class="status-item">MIC: <span id="st-mic">—</span></div>
+    <div class="status-item">CÁMARA: <span id="st-cam">—</span></div>
+    <div class="status-item" style="margin-left:auto">SNAPREC v1.0</div>
+  </div>
+
+  <script src="js/devices.js"></script>
+  <script src="js/bubble.js"></script>
+  <script src="js/recorder.js"></script>
+  <script src="js/crop.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
