@@ -127,7 +127,8 @@ const Recorder = (() => {
         annotationCanvas: piped.annotationCanvas,
         width: piped.width,
         height: piped.height,
-        setAnnotationsEnabled: piped.setAnnotationsEnabled
+        setAnnotationsEnabled: piped.setAnnotationsEnabled,
+        setCameraOnly: piped.setCameraOnly
       }
     } else {
       const rawTrack = displayStream.getVideoTracks()[0]

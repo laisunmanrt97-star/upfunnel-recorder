@@ -281,6 +281,23 @@
     } else {
       camPreview.hidden = true
     }
+
+    // ── Botón cámara fullscreen ──
+    const btnCamFull = document.getElementById('btn-cam-full')
+    function updateCamFullBtn (active) {
+      btnCamFull.classList.toggle('active', active)
+      btnCamFull.textContent = active ? '🎥 PANTALLA' : '🎥 CÁMARA'
+    }
+    updateCamFullBtn(false)
+    btnCamFull.onclick = () => {
+      const studio = Recorder.getStudio()
+      const isActive = btnCamFull.classList.contains('active')
+      const next = !isActive
+      updateCamFullBtn(next)
+      if (studio && studio.setCameraOnly) studio.setCameraOnly(next)
+      // Ocultar el mini-overlay de cámara cuando está en fullscreen
+      camPreview.hidden = next || !camStream
+    }
   }
 
   function teardownStudio () {
@@ -379,6 +396,9 @@
     lastResult = result
     Bubble.close()
     teardownStudio()
+
+    // Traer el foco a SnapRec (útil cuando "Dejar de compartir" focus la otra ventana)
+    window.focus()
 
     // Guardar metadatos en estadísticas
     const recMeta = Recorder.getInfo()

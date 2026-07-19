@@ -130,8 +130,33 @@ const Crop = (() => {
     let annotationsEnabled = true
     let hasAnnotations = false
     let checkedAnnotations = false
+    let cameraOnly = false
+
+    function drawCameraFullscreen () {
+      if (!camVideo) return
+      const cw = camVideo.videoWidth, ch = camVideo.videoHeight
+      if (!cw || !ch) return
+      const scale = Math.max(outW / cw, outH / ch)
+      const sw = cw * scale, sh = ch * scale
+      const sx = (outW - sw) / 2, sy = (outH - sh) / 2
+      ctx.fillStyle = '#080C14'
+      ctx.fillRect(0, 0, outW, outH)
+      ctx.drawImage(camVideo, 0, 0, cw, ch, sx, sy, sw, sh)
+    }
 
     function drawFrame () {
+      if (cameraOnly) {
+        drawCameraFullscreen()
+        if (annotationCanvas && annotationsEnabled) {
+          if (!checkedAnnotations) {
+            const px = annotationCanvas.getContext('2d').getImageData(0, 0, 1, 1).data
+            hasAnnotations = px[3] !== 0
+            checkedAnnotations = true
+          }
+          if (hasAnnotations) ctx.drawImage(annotationCanvas, 0, 0)
+        }
+        return
+      }
       if (region) {
         ctx.drawImage(srcVideo, region.x, region.y, region.w, region.h, 0, 0, outW, outH)
       } else {
@@ -185,6 +210,7 @@ const Crop = (() => {
       width: outW,
       height: outH,
       setAnnotationsEnabled: (v) => { annotationsEnabled = v },
+      setCameraOnly: (v) => { cameraOnly = v },
       stop: () => {
         if (vfcId !== null && typeof srcVideo.cancelVideoFrameCallback === 'function') {
           srcVideo.cancelVideoFrameCallback(vfcId)
