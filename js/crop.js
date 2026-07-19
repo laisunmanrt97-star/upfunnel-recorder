@@ -66,12 +66,19 @@ const Crop = (() => {
   // Devuelve { stream, stop, annotationCanvas, width, height }
   // Orden de capas: pantalla → anotaciones → cámara
 
-  async function createPipeline ({ displayStream, region, camStream, camera, withAnnotations, fps }) {
+  async function createPipeline ({ displayStream, region, camStream, camera, withAnnotations, fps, targetHeight }) {
     const srcVideo = await playStream(displayStream)
     const camVideo = camStream ? await playStream(camStream) : null
 
-    const outW = region ? region.w : srcVideo.videoWidth
-    const outH = region ? region.h : srcVideo.videoHeight
+    let outW = region ? region.w : srcVideo.videoWidth
+    let outH = region ? region.h : srcVideo.videoHeight
+
+    // Escalar salida si el preset pide una altura máxima
+    if (targetHeight && outH > targetHeight) {
+      const scale = targetHeight / outH
+      outW = Math.round(outW * scale) & ~1   // dimensiones pares
+      outH = targetHeight & ~1
+    }
 
     const cv = document.createElement('canvas')
     cv.width = outW
@@ -131,8 +138,30 @@ const Crop = (() => {
     }
 
     drawFrame()
-    const interval = setInterval(drawFrame, 1000 / fps)
     const stream = cv.captureStream(fps)
+
+    // Sincronizar dibujo con frames reales del video fuente (requestVideoFrameCallback)
+    // en vez de un setInterval independiente que se acelera/atrasa sin relación con
+    // la captura real. Fallback a setInterval si el navegador no lo soporta.
+    let frameLoopId = null
+    let lastFrameTs = performance.now()
+    const frameInterval = 1000 / fps
+    const hasVFC = typeof srcVideo.requestVideoFrameCallback === 'function'
+
+    if (hasVFC) {
+      function onVideoFrame (now, metadata) {
+        if (now - lastFrameTs >= frameInterval) {
+          drawFrame()
+          lastFrameTs = now
+        }
+        if (srcVideo.readyState >= 2) {  // HAVE_CURRENT_DATA
+          frameLoopId = srcVideo.requestVideoFrameCallback(onVideoFrame)
+        }
+      }
+      frameLoopId = srcVideo.requestVideoFrameCallback(onVideoFrame)
+    } else {
+      frameLoopId = setInterval(drawFrame, frameInterval)
+    }
 
     return {
       stream,
@@ -140,7 +169,11 @@ const Crop = (() => {
       width: outW,
       height: outH,
       stop: () => {
-        clearInterval(interval)
+        if (hasVFC && frameLoopId !== null) {
+          srcVideo.cancelVideoFrameCallback(frameLoopId)
+        } else if (!hasVFC && frameLoopId !== null) {
+          clearInterval(frameLoopId)
+        }
         srcVideo.srcObject = null
         if (camVideo) camVideo.srcObject = null
       }

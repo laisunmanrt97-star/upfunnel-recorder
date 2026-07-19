@@ -194,31 +194,37 @@
     const preview = document.getElementById('rec-preview')
     preview.srcObject = studio.stream
 
-    // Sustituir el placeholder por el canvas real de anotaciones del pipeline
-    const placeholder = document.getElementById('rec-annotate')
     const annotate = studio.annotationCanvas
-    annotate.id = 'rec-annotate'
-    annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
-    placeholder.replaceWith(annotate)
+    if (annotate) {
+      // Con canvas de anotaciones: overlay para dibujar en vivo
+      annotate.id = 'rec-annotate'
+      annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
+      document.getElementById('rec-annotate').replaceWith(annotate)
 
-    studioSurface = Tools.attach(annotate, {
-      getTool:  () => recTools.tool,
-      getColor: () => recTools.color,
-      getSize:  () => recTools.size,
-      onText: (x, y) => {
-        Tools.textInput({
-          canvas: annotate,
-          x, y,
-          color: recTools.color,
-          size: recTools.size,
-          onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
-        })
-      }
-    })
-    recTools.api = studioSurface
+      studioSurface = Tools.attach(annotate, {
+        getTool:  () => recTools.tool,
+        getColor: () => recTools.color,
+        getSize:  () => recTools.size,
+        maxHistory: 3,
+        onText: (x, y) => {
+          Tools.textInput({
+            canvas: annotate, x, y,
+            color: recTools.color,
+            size: recTools.size,
+            onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
+          })
+        }
+      })
+      recTools.api = studioSurface
+    } else {
+      // Bypass de canvas: ocultar herramientas de anotación
+      document.getElementById('rec-annotate').hidden = true
+      document.getElementById('rec-tools').hidden = true
+    }
   }
 
   function teardownStudio () {
+    stopMetricsInterval()
     const preview = document.getElementById('rec-preview')
     preview.srcObject = null
     if (studioSurface) { studioSurface.destroy(); studioSurface = null }
@@ -228,10 +234,9 @@
   // ── Flujo de grabación ───────────────────────────────────────────────────
 
   async function startFlow () {
-    // El video se graba en memoria; al TERMINAR el usuario decide si lo
-    // descarga (decisión de producto: sin diálogo de guardado antes de
-    // grabar; si no descarga, no se guarda). El guardado en streaming a
-    // disco sigue disponible en Recorder.pickSaveTarget para el futuro.
+    // Guardado en streaming: pedir destino ANTES de getDisplayMedia (gesto de usuario).
+    // Si el usuario cancela, pickSaveTarget() devuelve 'memory' (fallback automático).
+    await Recorder.pickSaveTarget()
 
     // 1. La vista previa se cierra: la cámara se incrusta limpia en el video
     Bubble.close()
@@ -265,8 +270,36 @@
     document.querySelector('.rec-topbar').classList.remove('paused')
     document.getElementById('btn-pause').textContent = '‖ PAUSAR'
     mountStudio()
+    updateMetricsOnce()
+    startMetricsInterval()
     showView('rec')
     setStatus('GRABANDO')
+  }
+
+  // ── Métricas en vivo ───────────────────────────────────────────────────────
+
+  let metricsInterval = null
+
+  function updateMetricsOnce () {
+    const info = Recorder.getInfo()
+    document.getElementById('met-res').textContent = info.width && info.height
+      ? `${info.width}×${info.height}`
+      : '—×—'
+    document.getElementById('met-codec').textContent = info.codec || '—'
+    document.getElementById('met-size').textContent = '0 MB'
+  }
+
+  function startMetricsInterval () {
+    if (metricsInterval) clearInterval(metricsInterval)
+    metricsInterval = setInterval(() => {
+      const info = Recorder.getInfo()
+      const mb = (info.bytes / 1_048_576).toFixed(1)
+      document.getElementById('met-size').textContent = `${mb} MB`
+    }, 1000)
+  }
+
+  function stopMetricsInterval () {
+    if (metricsInterval) { clearInterval(metricsInterval); metricsInterval = null }
   }
 
   function onRecordingDone (result) {

@@ -93,18 +93,35 @@ const Recorder = (() => {
       catch (err) { console.warn('[SnapRec] Sin cámara, se graba sin ella:', err.name); camStream = null }
     }
 
-    // Pipeline por canvas SIEMPRE: habilita la capa de anotaciones en vivo
-    // (señalar/enfatizar mientras grabas) además de recorte y cámara.
-    const piped = await Crop.createPipeline({
-      displayStream, region, camStream, camera, withAnnotations: true, fps: preset.frameRate
-    })
-    const videoTrackStream = piped.stream
-    cropStop = piped.stop
-    studio = {
-      stream: piped.stream,
-      annotationCanvas: piped.annotationCanvas,
-      width: piped.width,
-      height: piped.height
+    // Bypass de canvas cuando no hay recorte, cámara ni anotaciones —
+    // el track nativo de getDisplayMedia va directo al encoder, 0 CPU extra.
+    const needsCanvas = !!(region || camera)
+    const targetHeight = preset.height || undefined
+
+    let videoTrackStream
+    if (needsCanvas) {
+      const piped = await Crop.createPipeline({
+        displayStream, region, camStream, camera, withAnnotations: true, fps: preset.frameRate, targetHeight
+      })
+      videoTrackStream = piped.stream
+      cropStop = piped.stop
+      studio = {
+        stream: piped.stream,
+        annotationCanvas: piped.annotationCanvas,
+        width: piped.width,
+        height: piped.height
+      }
+    } else {
+      const rawTrack = displayStream.getVideoTracks()[0]
+      videoTrackStream = new MediaStream([rawTrack])
+      cropStop = () => {}
+      const s = rawTrack.getSettings() || {}
+      studio = {
+        stream: videoTrackStream,
+        annotationCanvas: null,
+        width: s.width || 0,
+        height: s.height || 0
+      }
     }
 
     // ── Mezcla de audio: mic (siempre) + audio del sistema (si existe) ──
@@ -130,10 +147,17 @@ const Recorder = (() => {
       catch (err) { console.warn('[SnapRec] No se pudo escribir a disco, usando memoria:', err); fileHandle = null }
     }
 
+    // Bitrate dinámico: escalar el preset según píxeles reales de salida
+    // (referencia 720p = 1280×720 = 921 600 px)
+    const refPixels = 1280 * 720
+    const outPixels = (studio.width || 1) * (studio.height || 1)
+    const scale = Math.max(0.5, outPixels / refPixels)
+    const dynamicVideoBits = Math.round(preset.videoBitsPerSecond * scale)
+
     const mimeType = pickMimeType()
     mediaRecorder = new MediaRecorder(recStream, {
       mimeType,
-      videoBitsPerSecond: preset.videoBitsPerSecond,
+      videoBitsPerSecond: dynamicVideoBits,
       audioBitsPerSecond: 128_000
     })
 
@@ -228,5 +252,14 @@ const Recorder = (() => {
     return mediaRecorder !== null && mediaRecorder.state !== 'inactive'
   }
 
-  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio }
+  function getInfo () {
+    return {
+      width: studio?.width || 0,
+      height: studio?.height || 0,
+      codec: mediaRecorder?.mimeType || '',
+      bytes: bytesWritten
+    }
+  }
+
+  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio, getInfo }
 })()

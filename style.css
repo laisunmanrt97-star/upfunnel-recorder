@@ -289,6 +289,20 @@ select {
 
 .center { text-align: center; }
 
+/* ── Métricas en vivo ── */
+.metrics-bar {
+  display: flex;
+  gap: 20px;
+  padding: 6px 16px;
+  background: var(--uf-bg);
+  border: 1px solid var(--uf-border);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--uf-muted);
+  font-variant-numeric: tabular-nums;
+}
+.metrics-bar span { white-space: nowrap; }
+
 /* ── Vista resultado ── */
 #done-preview {
   width: 100%;

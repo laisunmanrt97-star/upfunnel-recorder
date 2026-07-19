@@ -45,15 +45,17 @@ const Tools = (() => {
   }
 
   // ── Superficie de dibujo interactiva ───────────────────────────────────────
-  // attach(canvas, opts) conecta pointer events y devuelve { undo, redo, clear, destroy }
+  // attach(canvas, opts) conecta pointer events y devuelve API de dibujo.
   //
   // opts:
-  //   getTool():  'pen'|'highlight'|'arrow'|'rect'|'ellipse'|'fill'|'pixelate'|'crop'|'text'
-  //   getColor(), getSize()
-  //   onText(x, y):    el caller muestra el input de texto (coords nativas)
-  //   onCrop(region):  solo editor de capturas; si falta, la herramienta no aplica
-  //   onChange():      notificación tras cada trazo confirmado (para habilitar botones)
-  //   maxHistory:      tope de snapshots de undo (default 25)
+  //   getTool(), getColor(), getSize()
+  //   onText(x, y), onCrop(region), onChange()
+  //   maxHistory: tope de snapshots de undo (default 25)
+  //
+  // Usa un overlay canvas para rubber-banding de formas (arrow/rect/ellipse/fill):
+  // la previsualización durante el arrastre se dibuja en el overlay, evitando
+  // getImageData/putImageData de todo el canvas en cada mousemove.
+  // Solo se usa getImageData al soltar el trazo (1 vez por gesto, no por frame).
 
   function attach (canvas, opts) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
@@ -62,7 +64,26 @@ const Tools = (() => {
     let redoStack = []
     let drawing = false
     let startX = 0, startY = 0, lastX = 0, lastY = 0
-    let snapshot = null   // frame antes del trazo actual (para rubber-band)
+    let snapshot = null   // solo para pixelate/crop
+
+    // ── Overlay canvas (evita getImageData/putImageData en cada mousemove) ──
+    const overlay = document.createElement('canvas')
+    overlay.width = canvas.width
+    overlay.height = canvas.height
+    const oCtx = overlay.getContext('2d')
+    overlay.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;'
+    const parent = canvas.parentElement
+    if (parent) {
+      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative'
+      parent.appendChild(overlay)
+    }
+    function syncOverlaySize () {
+      overlay.width = canvas.width
+      overlay.height = canvas.height
+    }
+    function clearOverlay () { oCtx.clearRect(0, 0, overlay.width, overlay.height) }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────
 
     function toNative (e) {
       const r = canvas.getBoundingClientRect()
@@ -79,13 +100,15 @@ const Tools = (() => {
       if (opts.onChange) opts.onChange()
     }
 
-    function resetCtx () {
+    function resetCanvasCtx () {
       ctx.globalAlpha = 1
       ctx.globalCompositeOperation = 'source-over'
       ctx.setLineDash([])
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
     }
+
+    // ── Eventos ──────────────────────────────────────────────────────────────
 
     function onDown (e) {
       if (e.button !== 0) return
@@ -101,8 +124,13 @@ const Tools = (() => {
 
       drawing = true
       canvas.setPointerCapture(e.pointerId)
-      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      resetCtx()
+      clearOverlay()
+      resetCanvasCtx()
+
+      // Snapshot solo para pixelate/crop (operan sobre píxeles existentes)
+      if (tool === 'pixelate' || tool === 'crop') {
+        snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      }
 
       if (tool === 'pen' || tool === 'highlight') {
         ctx.beginPath()
@@ -118,8 +146,9 @@ const Tools = (() => {
       const size = opts.getSize()
 
       switch (tool) {
+        // ── Incremental: dibuja directo en canvas principal ──
         case 'pen':
-          resetCtx()
+          resetCanvasCtx()
           ctx.strokeStyle = color
           ctx.lineWidth = size
           ctx.lineTo(p.x, p.y)
@@ -127,60 +156,55 @@ const Tools = (() => {
           break
 
         case 'highlight':
+          resetCanvasCtx()
           ctx.globalAlpha = 0.35
-          ctx.globalCompositeOperation = 'source-over'
           ctx.strokeStyle = '#FFE000'
           ctx.lineWidth = size * 5
-          ctx.lineCap = 'round'
           ctx.lineTo(p.x, p.y)
           ctx.stroke()
           break
 
+        // ── Formas: previsualización en overlay, commit en onUp ──
         case 'arrow':
-          ctx.putImageData(snapshot, 0, 0)
-          resetCtx()
-          drawArrow(ctx, startX, startY, p.x, p.y, color, size)
+          clearOverlay()
+          drawArrow(oCtx, startX, startY, p.x, p.y, color, size)
           break
 
         case 'rect':
-          ctx.putImageData(snapshot, 0, 0)
-          resetCtx()
-          ctx.strokeStyle = color
-          ctx.lineWidth = size
-          ctx.strokeRect(Math.min(startX, p.x), Math.min(startY, p.y),
-                         Math.abs(p.x - startX), Math.abs(p.y - startY))
+          clearOverlay()
+          oCtx.strokeStyle = color
+          oCtx.lineWidth = size
+          oCtx.strokeRect(Math.min(startX, p.x), Math.min(startY, p.y),
+                          Math.abs(p.x - startX), Math.abs(p.y - startY))
           break
 
-        case 'ellipse': {
-          ctx.putImageData(snapshot, 0, 0)
-          resetCtx()
-          ctx.strokeStyle = color
-          ctx.lineWidth = size
-          ctx.beginPath()
-          ctx.ellipse((startX + p.x) / 2, (startY + p.y) / 2,
-                      Math.abs(p.x - startX) / 2, Math.abs(p.y - startY) / 2, 0, 0, Math.PI * 2)
-          ctx.stroke()
+        case 'ellipse':
+          clearOverlay()
+          oCtx.strokeStyle = color
+          oCtx.lineWidth = size
+          oCtx.beginPath()
+          oCtx.ellipse((startX + p.x) / 2, (startY + p.y) / 2,
+                       Math.abs(p.x - startX) / 2, Math.abs(p.y - startY) / 2, 0, 0, Math.PI * 2)
+          oCtx.stroke()
           break
-        }
 
         case 'fill':
-          ctx.putImageData(snapshot, 0, 0)
-          resetCtx()
-          ctx.fillStyle = '#000000'
-          ctx.fillRect(Math.min(startX, p.x), Math.min(startY, p.y),
-                       Math.abs(p.x - startX), Math.abs(p.y - startY))
+          clearOverlay()
+          oCtx.fillStyle = '#000000'
+          oCtx.fillRect(Math.min(startX, p.x), Math.min(startY, p.y),
+                        Math.abs(p.x - startX), Math.abs(p.y - startY))
           break
 
+        // ── Pixelate / Crop: overlay para selección, snapshot para operar ──
         case 'pixelate':
         case 'crop':
-          ctx.putImageData(snapshot, 0, 0)
-          resetCtx()
-          ctx.strokeStyle = '#00E5FF'
-          ctx.lineWidth = 2
-          ctx.setLineDash([6, 4])
-          ctx.strokeRect(Math.min(startX, p.x), Math.min(startY, p.y),
-                         Math.abs(p.x - startX), Math.abs(p.y - startY))
-          ctx.setLineDash([])
+          clearOverlay()
+          oCtx.strokeStyle = '#00E5FF'
+          oCtx.lineWidth = 2
+          oCtx.setLineDash([6, 4])
+          oCtx.strokeRect(Math.min(startX, p.x), Math.min(startY, p.y),
+                          Math.abs(p.x - startX), Math.abs(p.y - startY))
+          oCtx.setLineDash([])
           break
       }
 
@@ -195,30 +219,78 @@ const Tools = (() => {
       const rx = Math.min(startX, p.x), ry = Math.min(startY, p.y)
       const rw = Math.abs(p.x - startX), rh = Math.abs(p.y - startY)
 
+      clearOverlay()
+
       if (tool === 'pixelate') {
         ctx.putImageData(snapshot, 0, 0)
         if (rw > 4 && rh > 4) applyPixelate(ctx, rx, ry, rw, rh)
-      } else if (tool === 'crop') {
-        ctx.putImageData(snapshot, 0, 0)
-        if (rw > 20 && rh > 20 && opts.onCrop) {
-          opts.onCrop({ x: rx, y: ry, w: rw, h: rh })
-          return   // onCrop redimensiona el canvas y gestiona el historial
-        }
+        snapshot = null
+        pushHistory()
+        return
       }
 
-      snapshot = null
-      pushHistory()
+      if (tool === 'crop') {
+        ctx.putImageData(snapshot, 0, 0)
+        snapshot = null
+        if (rw > 20 && rh > 20 && opts.onCrop) {
+          opts.onCrop({ x: rx, y: ry, w: rw, h: rh })
+          return
+        }
+        pushHistory()
+        return
+      }
+
+      // Formas (arrow / rect / ellipse / fill): commit al canvas principal
+      if (tool === 'arrow' || tool === 'rect' || tool === 'ellipse' || tool === 'fill') {
+        resetCanvasCtx()
+        const color = opts.getColor()
+        const size = opts.getSize()
+        switch (tool) {
+          case 'arrow':
+            drawArrow(ctx, startX, startY, p.x, p.y, color, size)
+            break
+          case 'rect':
+            ctx.strokeStyle = color
+            ctx.lineWidth = size
+            ctx.strokeRect(Math.min(startX, p.x), Math.min(startY, p.y),
+                           Math.abs(p.x - startX), Math.abs(p.y - startY))
+            break
+          case 'ellipse':
+            ctx.strokeStyle = color
+            ctx.lineWidth = size
+            ctx.beginPath()
+            ctx.ellipse((startX + p.x) / 2, (startY + p.y) / 2,
+                        Math.abs(p.x - startX) / 2, Math.abs(p.y - startY) / 2, 0, 0, Math.PI * 2)
+            ctx.stroke()
+            break
+          case 'fill':
+            ctx.fillStyle = '#000000'
+            ctx.fillRect(Math.min(startX, p.x), Math.min(startY, p.y),
+                         Math.abs(p.x - startX), Math.abs(p.y - startY))
+            break
+        }
+        pushHistory()
+        return
+      }
+
+      // Pen / highlight: solo guardar historial
+      if (tool === 'pen' || tool === 'highlight') {
+        pushHistory()
+      }
     }
 
-    // Escribir texto confirmado por el caller
+    // ── API de texto ──────────────────────────────────────────────────────────
+
     function commitText (text, x, y, color, size) {
       if (!text.trim()) return
-      resetCtx()
+      resetCanvasCtx()
       ctx.font = `600 ${size * 7 + 10}px Inter, 'Segoe UI', sans-serif`
       ctx.fillStyle = color
       ctx.fillText(text, x, y)
       pushHistory()
     }
+
+    // ── Undo / Redo / Clear ──────────────────────────────────────────────────
 
     function undo () {
       if (history.length < 2) return
@@ -240,15 +312,16 @@ const Tools = (() => {
       pushHistory()
     }
 
+    // ── Registrar eventos ────────────────────────────────────────────────────
+
     canvas.addEventListener('pointerdown', onDown)
     canvas.addEventListener('pointermove', onMove)
     canvas.addEventListener('pointerup', onUp)
-
-    // Estado inicial del historial
     pushHistory()
 
     return {
-      undo, redo, clear, commitText, pushHistory,
+      undo, redo, clear, commitText, pushHistory, syncOverlaySize,
+      overlayCanvas: overlay,
       canUndo: () => history.length > 1,
       canRedo: () => redoStack.length > 0,
       resetHistory: () => { history = []; redoStack = []; pushHistory() },
@@ -256,6 +329,7 @@ const Tools = (() => {
         canvas.removeEventListener('pointerdown', onDown)
         canvas.removeEventListener('pointermove', onMove)
         canvas.removeEventListener('pointerup', onUp)
+        if (overlay.parentElement) overlay.remove()
       }
     }
   }

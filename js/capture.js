@@ -91,6 +91,7 @@ const Capture = (() => {
         ctx.putImageData(data, 0, 0)
         updateDims()
         surface.resetHistory()
+        surface.syncOverlaySize()
       }
     })
     toolbar.api = surface

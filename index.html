@@ -136,6 +136,12 @@
       <canvas id="rec-annotate" aria-label="Superficie de anotación en vivo"></canvas>
     </div>
 
+    <div id="rec-metrics" class="metrics-bar">
+      <span id="met-res">—×—</span>
+      <span id="met-codec">—</span>
+      <span id="met-size">0 MB</span>
+    </div>
+
     <div class="tools-bar" id="rec-tools" role="toolbar" aria-label="Herramientas de anotación en vivo">
       <button class="tool-btn active" data-tool="pen" title="Dibujo libre" aria-label="Dibujo libre">✏</button>
       <button class="tool-btn" data-tool="highlight" title="Resaltador" aria-label="Resaltador">H</button>
@@ -154,7 +160,7 @@
       <button class="tool-btn wide-btn" data-act="clear" title="Limpiar anotaciones" aria-label="Limpiar todas las anotaciones">LIMPIAR</button>
     </div>
 
-    <p class="muted center">Lo que dibujas aquí queda grabado en el video al instante. Puedes minimizar esta pestaña — la grabación sigue.</p>
+    <p class="muted center">Lo que dibujas aquí queda grabado en el video al instante. ⚠ Si minimizas la pestaña, la composición puede ralentizarse — mantenla visible para mejor calidad.</p>
   </main>
 
   <!-- ══ VISTA: EDITOR DE CAPTURA ══════════════════════════════════ -->
