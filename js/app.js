@@ -203,32 +203,63 @@
     const toggleBtn = document.getElementById('btn-toggle-panel')
 
     if (annotate) {
-      // Colocar canvas de anotaciones dentro del panel lateral
       annotate.id = 'rec-annotate'
       annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
-      const wrap = document.getElementById('side-annotate-wrap')
-      wrap.innerHTML = ''
-      wrap.appendChild(annotate)
 
-      studioSurface = Tools.attach(annotate, {
-        getTool:  () => recTools.tool,
-        getColor: () => recTools.color,
-        getSize:  () => recTools.size,
-        maxHistory: 3,
-        onText: (x, y) => {
-          Tools.textInput({
-            canvas: annotate, x, y,
-            color: recTools.color,
-            size: recTools.size,
-            onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
-          })
-        }
-      })
-      recTools.api = studioSurface
-      sidePanel.classList.remove('collapsed')
-      toggleBtn.hidden = false
-      toggleBtn.textContent = '✏ PANEL'
-      toggleBtn.classList.add('active')
+      if (Bubble.isSupported()) {
+        // ── PiP flotante: el canvas + tools van a una ventana siempre-visible ──
+        studioSurface = Tools.attach(annotate, {
+          getTool:  () => recTools.tool,
+          getColor: () => recTools.color,
+          getSize:  () => recTools.size,
+          maxHistory: 3,
+          onText: (x, y) => {
+            Tools.textInput({
+              canvas: annotate, x, y,
+              color: recTools.color,
+              size: recTools.size,
+              onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
+            })
+          }
+        })
+        recTools.api = studioSurface
+        // Mover canvas + tools al PiP
+        const toolsEl = document.getElementById('rec-tools')
+        Bubble.openStudio(annotate, toolsEl).catch(() => {
+          // Fallback: si falla el PiP, usar panel lateral
+          const wrap = document.getElementById('side-annotate-wrap')
+          wrap.innerHTML = ''
+          wrap.appendChild(annotate)
+          sidePanel.classList.remove('collapsed')
+        })
+        sidePanel.classList.add('collapsed')
+        toggleBtn.hidden = true
+      } else {
+        // ── Panel lateral (fallback sin PiP) ──
+        const wrap = document.getElementById('side-annotate-wrap')
+        wrap.innerHTML = ''
+        wrap.appendChild(annotate)
+
+        studioSurface = Tools.attach(annotate, {
+          getTool:  () => recTools.tool,
+          getColor: () => recTools.color,
+          getSize:  () => recTools.size,
+          maxHistory: 3,
+          onText: (x, y) => {
+            Tools.textInput({
+              canvas: annotate, x, y,
+              color: recTools.color,
+              size: recTools.size,
+              onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
+            })
+          }
+        })
+        recTools.api = studioSurface
+        sidePanel.classList.remove('collapsed')
+        toggleBtn.hidden = false
+        toggleBtn.textContent = '✏ PANEL'
+        toggleBtn.classList.add('active')
+      }
     } else {
       // Bypass: ocultar todo el panel lateral
       sidePanel.classList.add('collapsed')
@@ -249,12 +280,18 @@
 
   function teardownStudio () {
     stopMetricsInterval()
+    Bubble.closeStudio()
     const preview = document.getElementById('rec-preview')
     preview.srcObject = null
     document.getElementById('cam-preview').hidden = true
     document.getElementById('cam-preview-video').srcObject = null
     if (studioSurface) { studioSurface.destroy(); studioSurface = null }
     recTools.api = null
+    // Devolver tools bar al DOM original
+    const toolsBar = document.getElementById('rec-tools')
+    if (toolsBar && !toolsBar.parentElement) {
+      document.getElementById('rec-sidepanel').appendChild(toolsBar)
+    }
   }
 
   // ── Flujo de grabación ───────────────────────────────────────────────────
@@ -375,7 +412,6 @@
       preview.src = lastObjectUrl
       preview.hidden = false
       btnDownload.hidden = false
-      document.querySelector('.done-controls').hidden = false
     }
 
     showView('done')
@@ -427,29 +463,6 @@
       setStatus('LISTO')
     })
 
-    // Velocidad de reproducción
-    document.querySelectorAll('.speed-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const speed = parseFloat(btn.dataset.speed)
-        const preview = document.getElementById('done-preview')
-        preview.playbackRate = speed
-        document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b === btn))
-      })
-    })
-
-    // Picture-in-Picture
-    document.getElementById('btn-pip').addEventListener('click', async () => {
-      const preview = document.getElementById('done-preview')
-      try {
-        if (document.pictureInPictureElement) {
-          await document.exitPictureInPicture()
-        } else {
-          await preview.requestPictureInPicture()
-        }
-      } catch (err) {
-        console.warn('[SnapRec] PiP:', err.name)
-      }
-    })
   }
 
   // ── Flujo de captura ─────────────────────────────────────────────────────

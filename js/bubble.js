@@ -136,5 +136,96 @@ const Bubble = (() => {
       b.classList.toggle('active', b.dataset.size === size))
   }
 
-  return { init, toggle, close, isOpen, setShape, setSize, onCameraChange, getShape: () => shape, getSize: () => size }
+  // ── Estudio flotante (PiP con anotaciones + cámara) ─────────────────────
+
+  let studioCanvas = null
+  let studioTools = null
+
+  async function openStudio (canvas, toolsElement) {
+    studioCanvas = canvas
+    studioTools = toolsElement
+
+    // Obtener stream de cámara si no lo tenemos
+    if (!camStream) {
+      try { camStream = await Devices.getCamStream() } catch {}
+    }
+
+    // Si ya hay un PiP abierto (cámara previa), lo reusamos
+    if (!pipWindow) {
+      pipWindow = await documentPictureInPicture.requestWindow({ width: 640, height: 480 })
+    }
+    // Reemplazar listener por si ya tenía uno viejo
+    pipWindow.addEventListener('pagehide', () => {
+      if (studioCanvas && studioCanvas.parentElement) studioCanvas.remove()
+      const wrap = document.getElementById('side-annotate-wrap')
+      if (studioCanvas && wrap) wrap.appendChild(studioCanvas)
+      pipWindow = null
+      studioCanvas = null
+      studioTools = null
+    }, { once: true })
+
+    const doc = pipWindow.document
+    doc.title = 'SnapRec — Anotaciones'
+    doc.body.innerHTML = ''
+
+    // Cargar estilos de la app en el PiP (URL absoluta desde el root)
+    const link = doc.createElement('link')
+    link.rel = 'stylesheet'
+    link.href = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '') + '/style.css?v=122'
+    doc.head.appendChild(link)
+
+    // Body: flex column, canvas arriba, tools abajo
+    doc.body.style.cssText = 'margin:0;background:#080C14;overflow:hidden;display:flex;flex-direction:column;height:100vh;font-family:Inter,sans-serif;'
+
+    // ── Contenedor del canvas (flex: 1) ──
+    const canvasWrap = doc.createElement('div')
+    canvasWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;background:#000;'
+
+    // Mover el canvas de anotaciones + su overlay (Tools.attach) al PiP
+    if (canvas) {
+      const oldParent = canvas.parentElement
+      // Recoger todos los hermanos que sean overlay (pointer-events:none)
+      const overlays = []
+      if (oldParent) {
+        for (const child of oldParent.children) {
+          if (child !== canvas && child.tagName === 'CANVAS' && child.style.pointerEvents === 'none') {
+            overlays.push(child)
+          }
+        }
+      }
+      if (oldParent) canvas.remove()
+      overlays.forEach(el => el.remove())
+      canvas.style.cssText = 'width:100%;height:100%;display:block;cursor:crosshair;touch-action:none;'
+      canvasWrap.appendChild(canvas)
+      overlays.forEach(el => canvasWrap.appendChild(el))
+    }
+
+    // Miniatura de cámara (esquina superior derecha)
+    if (camStream) {
+      const camVid = doc.createElement('video')
+      camVid.autoplay = true
+      camVid.muted = true
+      camVid.playsInline = true
+      camVid.srcObject = camStream
+      camVid.style.cssText = 'position:absolute;top:8px;right:8px;width:100px;height:75px;border-radius:50%;border:2px solid #00E5FF;object-fit:cover;transform:scaleX(-1);z-index:10;background:#000;'
+      canvasWrap.appendChild(camVid)
+    }
+
+    doc.body.appendChild(canvasWrap)
+
+    // ── Toolbar de anotaciones ──
+    if (toolsElement) {
+      if (toolsElement.parentElement) toolsElement.remove()
+      doc.body.appendChild(toolsElement)
+    }
+  }
+
+  function closeStudio () {
+    if (pipWindow) { pipWindow.close(); pipWindow = null }
+    studioCanvas = null
+    studioTools = null
+    // No detenemos camStream porque puede estar siendo usado por la grabación
+  }
+
+  return { init, toggle, close, isOpen, setShape, setSize, onCameraChange, getShape: () => shape, getSize: () => size, openStudio, closeStudio }
 })()
