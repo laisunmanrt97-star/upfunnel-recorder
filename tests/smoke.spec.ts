@@ -66,7 +66,7 @@ async function setupMocks (context) {
 
 // ── TEST 1: Grabación ──────────────────────────────────────────────────────────
 
-test('record 5s with synthetic streams → valid .webm', async ({ page, context }) => {
+test('record 5s with synthetic streams → valid video file', async ({ page, context }) => {
   await setupMocks(context)
 
   await page.goto('/')
@@ -87,14 +87,17 @@ test('record 5s with synthetic streams → valid .webm', async ({ page, context 
     page.click('#btn-download')
   ])
 
-  expect(download.suggestedFilename()).toMatch(/\.webm$/)
+  expect(download.suggestedFilename()).toMatch(/\.(mp4|webm)$/)
 
   const stream = await download.createReadStream()
   const chunks = []
   for await (const chunk of stream) chunks.push(chunk)
   const fileBuffer = Buffer.concat(chunks)
   expect(fileBuffer.length).toBeGreaterThan(1000)
-  expect(fileBuffer.readUInt32BE(0)).toBe(0x1A45DFA3)  // EBML (WebM) header
+  // Soporta header MP4 (ftyp) o WebM (EBML)
+  const sig = fileBuffer.subarray(4, 8).toString()
+  const ok = sig === 'ftyp' || fileBuffer.readUInt32BE(0) === 0x1A45DFA3
+  expect(ok).toBe(true)
 })
 
 // ── TEST 2: Modo captura ──────────────────────────────────────────────────────

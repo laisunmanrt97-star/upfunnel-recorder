@@ -35,22 +35,29 @@ const Recorder = (() => {
 
   function pickMimeType () {
     const candidates = [
-      'video/webm;codecs=h264,opus',   // hardware encode si está disponible
-      'video/webm;codecs=vp8,opus',    // el más liviano por software
+      'video/mp4;codecs=h264,aac',       // MP4 nativo (Chrome 97+) — ideal
+      'video/mp4',                         // MP4 genérico
+      'video/webm;codecs=h264,opus',       // WebM con H.264 (fallback)
+      'video/webm;codecs=vp8,opus',        // fallback VP8
       'video/webm'
     ]
     return candidates.find(c => MediaRecorder.isTypeSupported(c)) || ''
+  }
+
+  function mimeExt (mime) {
+    return mime.startsWith('video/mp4') ? '.mp4' : '.webm'
   }
 
   function suggestedName () {
     const d = new Date()
     const pad = n => String(n).padStart(2, '0')
     const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+    const ext = mimeExt(pickMimeType())
     if (sessionTitle) {
       const safe = sessionTitle.replace(/[^a-zA-Z0-9áéíóúñ\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60)
-      return `snaprec-${safe}-${ts}.webm`
+      return `snaprec-${safe}-${ts}${ext}`
     }
-    return `snaprec-${ts}.webm`
+    return `snaprec-${ts}${ext}`
   }
 
   // Debe llamarse DENTRO del gesto de usuario (click en GRABAR), antes de
@@ -58,10 +65,11 @@ const Recorder = (() => {
   async function pickSaveTarget () {
     fileHandle = null
     if (!window.showSaveFilePicker) return 'memory'
+    const ext = mimeExt(pickMimeType())
     try {
       fileHandle = await window.showSaveFilePicker({
         suggestedName: suggestedName(),
-        types: [{ description: 'Video WebM', accept: { 'video/webm': ['.webm'] } }]
+        types: [{ description: `Video ${ext.slice(1).toUpperCase()}`, accept: { [`video/${ext.slice(1)}`]: [ext] } }]
       })
       return 'disk'
     } catch (err) {
@@ -237,7 +245,8 @@ const Recorder = (() => {
       try { await writable.close() } catch (err) { console.error('[SnapRec] Error cerrando archivo:', err) }
       result = { saved: 'disk', name: fileHandle.name, bytes: bytesWritten, handle: fileHandle }
     } else {
-      const blob = new Blob(chunks, { type: 'video/webm' })
+      const mime = mediaRecorder?.mimeType || 'video/mp4'
+      const blob = new Blob(chunks, { type: mime })
       result = { saved: 'memory', name: suggestedName(), bytes: blob.size, blob }
     }
 
