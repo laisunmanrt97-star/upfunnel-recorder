@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="64" fill="#080C14"/>
+  <circle cx="256" cy="200" r="100" fill="none" stroke="#00E5FF" stroke-width="14"/>
+  <polygon points="215,165 215,235 285,200" fill="#00E5FF"/>
+  <text x="256" y="400" font-family="Inter, sans-serif" font-size="72" font-weight="700" fill="#fff" text-anchor="middle" letter-spacing="6">SNAP</text>
+  <text x="256" y="455" font-family="Inter, sans-serif" font-size="40" font-weight="400" fill="#00E5FF" text-anchor="middle" letter-spacing="4">REC</text>
+</svg>

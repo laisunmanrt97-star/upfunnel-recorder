@@ -510,6 +510,49 @@
     })
   }
 
+  // ── Atajos de teclado ──────────────────────────────────────────────────────
+  const TOOL_KEYS = {
+    b: 'pen', h: 'highlight', t: 'text', a: 'arrow',
+    r: 'rect', e: 'ellipse', f: 'fill', p: 'pixelate', c: 'crop'
+  }
+  function wireKeyboardShortcuts () {
+    document.addEventListener('keydown', (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return
+      const key = e.key.toLowerCase()
+      const inEditor = !document.getElementById('view-edit').hidden
+      const inStudio = !document.getElementById('view-rec').hidden
+      const inDone = !document.getElementById('view-done').hidden
+      if (e.ctrlKey && key === 'z') {
+        e.preventDefault()
+        if (inEditor && editTools.api) { e.shiftKey ? editTools.api.redo() : editTools.api.undo() }
+        else if (inStudio && recTools.api) { e.shiftKey ? recTools.api.redo() : recTools.api.undo() }
+        return
+      }
+      if (key === 'escape') {
+        if (inEditor) { Capture.teardown(); showView('setup'); setStatus('LISTO') }
+        else if (inDone) document.getElementById('btn-again').click()
+        return
+      }
+      if (TOOL_KEYS[key]) {
+        const barId = inEditor ? 'edit-tools' : inStudio ? 'rec-tools' : null
+        if (!barId) return
+        const btn = document.getElementById(barId).querySelector(`[data-tool="${TOOL_KEYS[key]}"]`)
+        if (btn) btn.click()
+        return
+      }
+      if (key === ' ' && inStudio) {
+        e.preventDefault()
+        document.getElementById('btn-pause').click()
+        return
+      }
+      if (key === '1' || key === '2' || key === '3') {
+        const tabs = ['record', 'capture', 'dashboard']
+        const btn = document.querySelector(`[data-tab="${tabs[parseInt(key) - 1]}"]`)
+        if (btn) btn.click()
+      }
+    })
+  }
+
   // Aviso si intenta cerrar la pestaña mientras graba
   window.addEventListener('beforeunload', (e) => {
     if (Recorder.isRecording()) { e.preventDefault(); e.returnValue = '' }
@@ -526,6 +569,7 @@
     wireOptions()
     wireRecordingControls()
     wireCaptureControls()
+    wireKeyboardShortcuts()
     Devices.init()
   }
 })()

@@ -227,5 +227,5 @@ const Bubble = (() => {
     // No detenemos camStream porque puede estar siendo usado por la grabación
   }
 
-  return { init, toggle, close, isOpen, setShape, setSize, onCameraChange, getShape: () => shape, getSize: () => size, openStudio, closeStudio }
+  return { init, open, toggle, close, isOpen, isSupported, setShape, setSize, onCameraChange, getShape: () => shape, getSize: () => size, openStudio, closeStudio }
 })()

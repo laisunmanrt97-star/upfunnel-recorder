@@ -4,7 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SnapRec</title>
-  <link rel="stylesheet" href="style.css?v=122">
+  <link rel="stylesheet" href="style.css?v=123">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#080C14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/assets/icon-192.svg">
 </head>
 <body>
 
@@ -300,18 +305,23 @@
   <div id="statusbar">
     <div class="status-item">MIC: <span id="st-mic">—</span></div>
     <div class="status-item">CÁMARA: <span id="st-cam">—</span></div>
-    <div class="status-item" style="margin-left:auto">SNAPREC v1.2.1</div>
+    <div class="status-item" style="margin-left:auto">SNAPREC v1.3.0</div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="js/tools.js?v=122"></script>
-  <script src="js/devices.js?v=122"></script>
-  <script src="js/bubble.js?v=122"></script>
-  <script src="js/stats.js?v=122"></script>
-  <script src="js/dashboard.js?v=122"></script>
-  <script src="js/crop.js?v=122"></script>
-  <script src="js/recorder.js?v=122"></script>
-  <script src="js/capture.js?v=122"></script>
-  <script src="js/app.js?v=122"></script>
+  <script src="js/tools.js?v=123"></script>
+  <script src="js/devices.js?v=123"></script>
+  <script src="js/bubble.js?v=123"></script>
+  <script src="js/stats.js?v=123"></script>
+  <script src="js/dashboard.js?v=123"></script>
+  <script src="js/crop.js?v=123"></script>
+  <script src="js/recorder.js?v=123"></script>
+  <script src="js/capture.js?v=123"></script>
+  <script src="js/app.js?v=123"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
+    }
+  </script>
 </body>
 </html>
