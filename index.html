@@ -26,6 +26,7 @@
     <div class="btn-row" id="main-tabs" role="tablist" aria-label="Modo de la herramienta">
       <button class="tab-btn active" data-tab="record" role="tab" aria-label="Modo grabar video">🎬 GRABAR VIDEO</button>
       <button class="tab-btn" data-tab="capture" role="tab" aria-label="Modo tomar captura">📸 TOMAR CAPTURA</button>
+      <button class="tab-btn" data-tab="dashboard" role="tab" aria-label="Estadísticas">📊 ESTADÍSTICAS</button>
     </div>
 
     <!-- ── Panel GRABAR ── -->
@@ -106,6 +107,68 @@
         <p class="muted">Chrome te pide qué compartir (pantalla o ventana) → cuenta regresiva de 3 segundos para que cambies a la app que quieres capturar → suena un aviso y vuelves aquí a editar.</p>
         <p class="muted">La pantalla compartida queda activa: las siguientes capturas son instantáneas, sin volver a preguntar.</p>
       </section>
+
+    </div>
+
+    <!-- ── Panel ESTADÍSTICAS ── -->
+    <div id="setup-dashboard" hidden>
+
+      <div class="dash-filters">
+        <button class="opt-btn dash-filter-btn active" data-period="day">Hoy</button>
+        <button class="opt-btn dash-filter-btn" data-period="week">Semana</button>
+        <button class="opt-btn dash-filter-btn" data-period="month">Mes</button>
+        <button class="opt-btn dash-filter-btn" data-period="year">Año</button>
+        <button class="opt-btn dash-filter-btn" data-period="all">Todo</button>
+      </div>
+
+      <div class="dash-kpis">
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Grabaciones</span>
+          <span class="stat-card-value" id="dash-count">0</span>
+          <span class="stat-card-sub" id="dash-period-label">—</span>
+        </div>
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Duración total</span>
+          <span class="stat-card-value" id="dash-duration">—</span>
+          <span class="stat-card-sub">hh:mm</span>
+        </div>
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Tamaño total</span>
+          <span class="stat-card-value" id="dash-size">—</span>
+          <span class="stat-card-sub">MB</span>
+        </div>
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Promedio</span>
+          <span class="stat-card-value" id="dash-avg">—</span>
+          <span class="stat-card-sub">por grabación</span>
+        </div>
+      </div>
+
+      <div class="dash-chart-wrap">
+        <canvas id="dash-chart" height="250"></canvas>
+      </div>
+
+      <div id="dash-period-cards" class="dash-period-cards"></div>
+
+      <div class="panel" style="padding:0;overflow:hidden">
+        <div style="overflow-x:auto">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Duración</th>
+                <th>Tamaño</th>
+                <th>Resolución</th>
+                <th>Calidad</th>
+                <th>Cámara</th>
+              </tr>
+            </thead>
+            <tbody id="dash-table-body">
+              <tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
 
     </div>
 
@@ -237,9 +300,12 @@
     <div class="status-item" style="margin-left:auto">SNAPREC v1.2.1</div>
   </div>
 
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
   <script src="js/tools.js?v=121"></script>
   <script src="js/devices.js?v=121"></script>
   <script src="js/bubble.js?v=121"></script>
+  <script src="js/stats.js?v=121"></script>
+  <script src="js/dashboard.js?v=121"></script>
   <script src="js/crop.js?v=121"></script>
   <script src="js/recorder.js?v=121"></script>
   <script src="js/capture.js?v=121"></script>

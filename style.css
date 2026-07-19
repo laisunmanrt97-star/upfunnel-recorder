@@ -434,4 +434,103 @@ select {
 }
 .status-item span { color: var(--uf-text); }
 
+/* ── Dashboard ── */
+#setup-dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.dash-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.dash-filters .opt-btn { font-size: 12px; padding: 6px 14px; }
+
+.dash-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+.stat-card {
+  background: var(--uf-surface);
+  border: 1px solid var(--uf-border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.stat-card.kpi { text-align: center; }
+.stat-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--uf-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+.stat-card-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--uf-text);
+  font-variant-numeric: tabular-nums;
+}
+.stat-card-sub {
+  font-size: 11px;
+  color: var(--uf-muted);
+}
+
+.dash-chart-wrap {
+  background: var(--uf-surface);
+  border: 1px solid var(--uf-border);
+  border-radius: 8px;
+  padding: 12px;
+  height: 280px;
+}
+.dash-chart-wrap canvas { width: 100% !important; height: 100% !important; }
+
+.dash-period-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
+.dash-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.dash-table th {
+  background: var(--uf-surface);
+  color: var(--uf-muted);
+  font-weight: 700;
+  font-size: 10px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--uf-border);
+}
+.dash-table td {
+  padding: 10px 14px;
+  color: var(--uf-text);
+  border-bottom: 1px solid rgba(148,163,184,0.08);
+  white-space: nowrap;
+}
+.dash-table tbody tr:hover { background: var(--uf-accent-soft); }
+.dash-table tbody tr:last-child td { border-bottom: none; }
+
+/* Responsive: 2 columnas en tablets, 1 en mobile */
+@media (max-width: 900px) {
+  .dash-kpis { grid-template-columns: repeat(2, 1fr); }
+  .dash-period-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .dash-kpis { grid-template-columns: 1fr; }
+  .dash-period-cards { grid-template-columns: 1fr; }
+  .side-panel { width: 100%; min-width: unset; }
+  #rec-body { flex-direction: column; }
+}
+
 [hidden] { display: none !important; }

@@ -114,10 +114,14 @@
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn))
         document.getElementById('setup-record').hidden = (mainTab !== 'record')
         document.getElementById('setup-capture').hidden = (mainTab !== 'capture')
+        document.getElementById('setup-dashboard').hidden = (mainTab !== 'dashboard')
+        if (mainTab === 'dashboard') Dashboard.init()
       })
     })
     document.getElementById('setup-record').hidden = (mainTab !== 'record')
     document.getElementById('setup-capture').hidden = (mainTab !== 'capture')
+    document.getElementById('setup-dashboard').hidden = (mainTab !== 'dashboard')
+    if (mainTab === 'dashboard') setTimeout(() => Dashboard.init(), 100)
 
     // Modo de grabación
     document.querySelectorAll('[data-mode]').forEach(btn => {
@@ -328,6 +332,21 @@
     lastResult = result
     Bubble.close()
     teardownStudio()
+
+    // Guardar metadatos en estadísticas
+    const recMeta = Recorder.getInfo()
+    Stats.save({
+      timestamp: Date.now(),
+      duration: recMeta.duration,
+      size: result.bytes,
+      width: recMeta.width,
+      height: recMeta.height,
+      codec: recMeta.codec,
+      mode: mode,
+      quality: quality,
+      camera: camMode,
+      name: result.name
+    }).catch(() => {})
 
     const info = document.getElementById('done-info')
     const preview = document.getElementById('done-preview')

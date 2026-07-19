@@ -258,7 +258,8 @@ const Recorder = (() => {
       width: studio?.width || 0,
       height: studio?.height || 0,
       codec: mediaRecorder?.mimeType || '',
-      bytes: bytesWritten
+      bytes: bytesWritten,
+      duration: Math.round(elapsedMs / 1000)
     }
   }
 
