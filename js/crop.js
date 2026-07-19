@@ -127,13 +127,15 @@ const Crop = (() => {
       ctx.stroke()
     }
 
+    let annotationsEnabled = true
+
     function drawFrame () {
       if (region) {
         ctx.drawImage(srcVideo, region.x, region.y, region.w, region.h, 0, 0, outW, outH)
       } else {
         ctx.drawImage(srcVideo, 0, 0, outW, outH)
       }
-      if (annotationCanvas) ctx.drawImage(annotationCanvas, 0, 0)
+      if (annotationCanvas && annotationsEnabled) ctx.drawImage(annotationCanvas, 0, 0)
       if (camVideo) drawCam()
     }
 
@@ -168,6 +170,7 @@ const Crop = (() => {
       annotationCanvas,
       width: outW,
       height: outH,
+      setAnnotationsEnabled: (v) => { annotationsEnabled = v },
       stop: () => {
         if (hasVFC && frameLoopId !== null) {
           srcVideo.cancelVideoFrameCallback(frameLoopId)

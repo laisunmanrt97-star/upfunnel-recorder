@@ -195,11 +195,16 @@
     preview.srcObject = studio.stream
 
     const annotate = studio.annotationCanvas
+    const sidePanel = document.getElementById('rec-sidepanel')
+    const toggleBtn = document.getElementById('btn-toggle-panel')
+
     if (annotate) {
-      // Con canvas de anotaciones: overlay para dibujar en vivo
+      // Colocar canvas de anotaciones dentro del panel lateral
       annotate.id = 'rec-annotate'
       annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
-      document.getElementById('rec-annotate').replaceWith(annotate)
+      const wrap = document.getElementById('side-annotate-wrap')
+      wrap.innerHTML = ''
+      wrap.appendChild(annotate)
 
       studioSurface = Tools.attach(annotate, {
         getTool:  () => recTools.tool,
@@ -216,10 +221,25 @@
         }
       })
       recTools.api = studioSurface
+      sidePanel.classList.remove('collapsed')
+      toggleBtn.hidden = false
+      toggleBtn.textContent = '✏ PANEL'
+      toggleBtn.classList.add('active')
     } else {
-      // Bypass de canvas: ocultar herramientas de anotación
-      document.getElementById('rec-annotate').hidden = true
-      document.getElementById('rec-tools').hidden = true
+      // Bypass: ocultar todo el panel lateral
+      sidePanel.classList.add('collapsed')
+      toggleBtn.hidden = true
+    }
+
+    // ── Cámara mini overlay en el preview ──
+    const camStream = Recorder.getCameraStream()
+    const camPreview = document.getElementById('cam-preview')
+    const camVideo = document.getElementById('cam-preview-video')
+    if (camStream) {
+      camVideo.srcObject = camStream
+      camPreview.hidden = false
+    } else {
+      camPreview.hidden = true
     }
   }
 
@@ -227,6 +247,8 @@
     stopMetricsInterval()
     const preview = document.getElementById('rec-preview')
     preview.srcObject = null
+    document.getElementById('cam-preview').hidden = true
+    document.getElementById('cam-preview-video').srcObject = null
     if (studioSurface) { studioSurface.destroy(); studioSurface = null }
     recTools.api = null
   }
@@ -345,6 +367,17 @@
     })
 
     document.getElementById('btn-stop').addEventListener('click', () => Recorder.stop())
+
+    document.getElementById('btn-toggle-panel').addEventListener('click', () => {
+      const studio = Recorder.getStudio()
+      if (!studio) return
+      const panel = document.getElementById('rec-sidepanel')
+      const isCollapsed = panel.classList.toggle('collapsed')
+      const btn = document.getElementById('btn-toggle-panel')
+      if (studio.setAnnotationsEnabled) studio.setAnnotationsEnabled(isCollapsed)
+      btn.textContent = isCollapsed ? '✏ MOSTRAR' : '✏ PANEL'
+      btn.classList.toggle('active', !isCollapsed)
+    })
 
     document.getElementById('btn-download').addEventListener('click', () => {
       if (!lastResult || lastResult.saved !== 'memory') return

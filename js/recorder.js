@@ -109,7 +109,8 @@ const Recorder = (() => {
         stream: piped.stream,
         annotationCanvas: piped.annotationCanvas,
         width: piped.width,
-        height: piped.height
+        height: piped.height,
+        setAnnotationsEnabled: piped.setAnnotationsEnabled
       }
     } else {
       const rawTrack = displayStream.getVideoTracks()[0]
@@ -261,5 +262,5 @@ const Recorder = (() => {
     }
   }
 
-  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio, getInfo }
+  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio, getInfo, getCameraStream: () => camStream }
 })()

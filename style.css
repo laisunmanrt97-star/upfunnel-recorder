@@ -204,22 +204,92 @@ select {
 .paused #rec-indicator { color: var(--uf-muted); }
 .paused #rec-dot { animation: none; text-shadow: none; }
 
+#rec-preview { width: 100%; display: block; }
+
+/* ── Layout: video + panel lateral ── */
+#rec-body {
+  flex: 1;
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+}
 #studio-wrap {
+  flex: 1;
   position: relative;
   line-height: 0;
   border: 1px solid var(--uf-border);
   border-radius: 8px;
   overflow: hidden;
   background: #000;
+  align-self: flex-start;
 }
-#rec-preview { width: 100%; display: block; }
+
+/* ── Side panel de anotaciones ── */
+.side-panel {
+  width: 320px;
+  min-width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--uf-surface);
+  border: 1px solid var(--uf-border);
+  border-radius: 8px;
+  padding: 10px;
+  overflow: hidden;
+}
+.side-panel.collapsed { display: none; }
+
+#side-annotate-wrap {
+  flex: 1;
+  min-height: 200px;
+  border: 1px solid var(--uf-border);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+  line-height: 0;
+}
 #rec-annotate {
-  position: absolute;
-  inset: 0;
   width: 100%;
   height: 100%;
+  display: block;
   cursor: crosshair;
   touch-action: none;
+}
+
+#rec-body:has(.side-panel.collapsed) #studio-wrap {
+  border-radius: 8px;
+}
+
+/* ── Cámara mini overlay ── */
+.cam-preview {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  width: 180px;
+  height: 135px;
+  border: 2px solid var(--uf-accent);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 0 16px rgba(0, 229, 255, 0.3);
+  z-index: 5;
+  background: #000;
+}
+.cam-preview video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+.cam-preview-label {
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--uf-accent);
+  letter-spacing: 1px;
+  text-shadow: 0 0 6px rgba(0,0,0,0.8);
+  pointer-events: none;
 }
 
 #edit-wrap {

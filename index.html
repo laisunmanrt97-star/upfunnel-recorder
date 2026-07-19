@@ -128,12 +128,41 @@
       <div class="btn-row">
         <button id="btn-pause" class="opt-btn" aria-label="Pausar o reanudar grabación">‖ PAUSAR</button>
         <button id="btn-stop" class="opt-btn danger" aria-label="Detener grabación">■ DETENER</button>
+        <button id="btn-toggle-panel" class="opt-btn active" aria-label="Ocultar o mostrar panel de anotaciones">✏ PANEL</button>
       </div>
     </div>
 
-    <div id="studio-wrap">
-      <video id="rec-preview" autoplay muted playsinline></video>
-      <canvas id="rec-annotate" aria-label="Superficie de anotación en vivo"></canvas>
+    <div id="rec-body">
+      <div id="studio-wrap">
+        <video id="rec-preview" autoplay muted playsinline></video>
+        <div id="cam-preview" class="cam-preview" hidden>
+          <video id="cam-preview-video" autoplay muted playsinline></video>
+          <span class="cam-preview-label">TÚ</span>
+        </div>
+      </div>
+
+      <aside id="rec-sidepanel" class="side-panel">
+        <div id="side-annotate-wrap">
+          <canvas id="rec-annotate" aria-label="Superficie de anotación en vivo"></canvas>
+        </div>
+        <div class="tools-bar" id="rec-tools" role="toolbar" aria-label="Herramientas de anotación en vivo">
+          <button class="tool-btn active" data-tool="pen" title="Dibujo libre" aria-label="Dibujo libre">✏</button>
+          <button class="tool-btn" data-tool="highlight" title="Resaltador" aria-label="Resaltador">H</button>
+          <button class="tool-btn" data-tool="arrow" title="Flecha" aria-label="Flecha">→</button>
+          <button class="tool-btn" data-tool="rect" title="Rectángulo" aria-label="Rectángulo">□</button>
+          <button class="tool-btn" data-tool="ellipse" title="Círculo" aria-label="Círculo">○</button>
+          <button class="tool-btn" data-tool="text" title="Texto" aria-label="Texto">T</button>
+          <span class="tools-sep"></span>
+          <span class="ink-swatches" data-for="rec"></span>
+          <span class="tools-sep"></span>
+          <button class="tool-btn" data-act="size-dec" title="Reducir grosor" aria-label="Reducir grosor">−</button>
+          <span class="size-val" data-for="rec">4</span>
+          <button class="tool-btn" data-act="size-inc" title="Aumentar grosor" aria-label="Aumentar grosor">+</button>
+          <span class="tools-sep"></span>
+          <button class="tool-btn" data-act="undo" title="Deshacer" aria-label="Deshacer">↩</button>
+          <button class="tool-btn wide-btn" data-act="clear" title="Limpiar anotaciones" aria-label="Limpiar todas las anotaciones">LIMPIAR</button>
+        </div>
+      </aside>
     </div>
 
     <div id="rec-metrics" class="metrics-bar">
@@ -142,25 +171,7 @@
       <span id="met-size">0 MB</span>
     </div>
 
-    <div class="tools-bar" id="rec-tools" role="toolbar" aria-label="Herramientas de anotación en vivo">
-      <button class="tool-btn active" data-tool="pen" title="Dibujo libre" aria-label="Dibujo libre">✏</button>
-      <button class="tool-btn" data-tool="highlight" title="Resaltador" aria-label="Resaltador">H</button>
-      <button class="tool-btn" data-tool="arrow" title="Flecha" aria-label="Flecha">→</button>
-      <button class="tool-btn" data-tool="rect" title="Rectángulo" aria-label="Rectángulo">□</button>
-      <button class="tool-btn" data-tool="ellipse" title="Círculo" aria-label="Círculo">○</button>
-      <button class="tool-btn" data-tool="text" title="Texto" aria-label="Texto">T</button>
-      <span class="tools-sep"></span>
-      <span class="ink-swatches" data-for="rec"></span>
-      <span class="tools-sep"></span>
-      <button class="tool-btn" data-act="size-dec" title="Reducir grosor" aria-label="Reducir grosor">−</button>
-      <span class="size-val" data-for="rec">4</span>
-      <button class="tool-btn" data-act="size-inc" title="Aumentar grosor" aria-label="Aumentar grosor">+</button>
-      <span class="tools-sep"></span>
-      <button class="tool-btn" data-act="undo" title="Deshacer" aria-label="Deshacer">↩</button>
-      <button class="tool-btn wide-btn" data-act="clear" title="Limpiar anotaciones" aria-label="Limpiar todas las anotaciones">LIMPIAR</button>
-    </div>
-
-    <p class="muted center">Lo que dibujas aquí queda grabado en el video al instante. ⚠ Si minimizas la pestaña, la composición puede ralentizarse — mantenla visible para mejor calidad.</p>
+    <p class="muted center">Dibujá en el panel lateral y lo que marques se graba en el video al instante. ⚠ Si minimizás la pestaña, la composición puede ralentizarse — mantenela visible para mejor calidad.</p>
   </main>
 
   <!-- ══ VISTA: EDITOR DE CAPTURA ══════════════════════════════════ -->
