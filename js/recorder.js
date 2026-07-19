@@ -95,7 +95,25 @@ const Recorder = (() => {
     })
 
     // El botón nativo "Dejar de compartir" de Chrome detiene la grabación
-    displayStream.getVideoTracks()[0].addEventListener('ended', () => stop())
+    displayStream.getVideoTracks()[0].addEventListener('ended', () => {
+      // Forzar foco a SnapRec: Chrome no concede window.focus() desde un evento
+      // ended, así que usamos un intento múltiple + cambio de título para avisar
+      document.title = '⏹ SnapRec — grabación finalizada'
+      setTimeout(() => { document.title = 'SnapRec' }, 4000)
+      // Intentar recuperar el foco varias veces
+      function tryFocus () {
+        try { window.focus() } catch {}
+      }
+      tryFocus()
+      setTimeout(tryFocus, 100)
+      setTimeout(tryFocus, 300)
+      setTimeout(tryFocus, 600)
+      window.addEventListener('focus', function onFocus () {
+        document.title = 'SnapRec'
+        window.removeEventListener('focus', onFocus)
+      })
+      stop()
+    })
 
     // Modo área: el usuario selecciona un rectángulo sobre un frame congelado
     let region = null
