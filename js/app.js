@@ -13,7 +13,8 @@
   let mainTab = 'record'    // record | capture
   let mode = 'full'         // full | area   (grabación)
   let capMode = 'full'      // full | area   (captura)
-  let quality = 'native24'
+  // Auto-detectar preset según CPU: ≤4 cores → liviano, sino → HD
+  let quality = (navigator.hardwareConcurrency || 8) <= 4 ? 'light15' : 'hd720'
   let camMode = 'embed'     // embed | off
   let camCorner = 'br'      // tl | tr | bl | br
   let lastResult = null
@@ -134,6 +135,10 @@
       })
     })
     document.getElementById('area-warning').hidden = (mode !== 'area')
+
+    // Advertencia de CPU si tiene pocos núcleos
+    const cpuWarn = document.getElementById('cpu-warning')
+    if ((navigator.hardwareConcurrency || 8) <= 4) cpuWarn.hidden = false
 
     // Área de captura
     document.querySelectorAll('[data-capmode]').forEach(btn => {

@@ -128,6 +128,8 @@ const Crop = (() => {
     }
 
     let annotationsEnabled = true
+    let hasAnnotations = false
+    let checkedAnnotations = false
 
     function drawFrame () {
       if (region) {
@@ -135,7 +137,14 @@ const Crop = (() => {
       } else {
         ctx.drawImage(srcVideo, 0, 0, outW, outH)
       }
-      if (annotationCanvas && annotationsEnabled) ctx.drawImage(annotationCanvas, 0, 0)
+      if (annotationCanvas && annotationsEnabled) {
+        if (!checkedAnnotations) {
+          const px = annotationCanvas.getContext('2d').getImageData(0, 0, 1, 1).data
+          hasAnnotations = px[3] !== 0
+          checkedAnnotations = true
+        }
+        if (hasAnnotations) ctx.drawImage(annotationCanvas, 0, 0)
+      }
       if (camVideo) drawCam()
     }
 
