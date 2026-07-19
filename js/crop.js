@@ -151,27 +151,32 @@ const Crop = (() => {
     drawFrame()
     const stream = cv.captureStream(fps)
 
-    // Sincronizar dibujo con frames reales del video fuente (requestVideoFrameCallback)
-    // en vez de un setInterval independiente que se acelera/atrasa sin relación con
-    // la captura real. Fallback a setInterval si el navegador no lo soporta.
-    let frameLoopId = null
+    // Sincronizar dibujo: VFC para cambios de contenido + setInterval de respaldo
+    // para garantizar frames aunque la fuente esté estática (bug: sin VFC, contenido
+    // quieto = sin frames = video lagueado).
+    let vfcId = null
+    let timerId = null
     let lastFrameTs = performance.now()
     const frameInterval = 1000 / fps
-    const hasVFC = typeof srcVideo.requestVideoFrameCallback === 'function'
 
-    if (hasVFC) {
+    function onDrawFrame () {
+      const now = performance.now()
+      if (now - lastFrameTs >= frameInterval) {
+        drawFrame()
+        lastFrameTs = now
+      }
+    }
+
+    timerId = setInterval(onDrawFrame, frameInterval)
+
+    if (typeof srcVideo.requestVideoFrameCallback === 'function') {
       function onVideoFrame (now, metadata) {
-        if (now - lastFrameTs >= frameInterval) {
-          drawFrame()
-          lastFrameTs = now
-        }
-        if (srcVideo.readyState >= 2) {  // HAVE_CURRENT_DATA
-          frameLoopId = srcVideo.requestVideoFrameCallback(onVideoFrame)
+        onDrawFrame()
+        if (srcVideo.readyState >= 2) {
+          vfcId = srcVideo.requestVideoFrameCallback(onVideoFrame)
         }
       }
-      frameLoopId = srcVideo.requestVideoFrameCallback(onVideoFrame)
-    } else {
-      frameLoopId = setInterval(drawFrame, frameInterval)
+      vfcId = srcVideo.requestVideoFrameCallback(onVideoFrame)
     }
 
     return {
@@ -181,11 +186,10 @@ const Crop = (() => {
       height: outH,
       setAnnotationsEnabled: (v) => { annotationsEnabled = v },
       stop: () => {
-        if (hasVFC && frameLoopId !== null) {
-          srcVideo.cancelVideoFrameCallback(frameLoopId)
-        } else if (!hasVFC && frameLoopId !== null) {
-          clearInterval(frameLoopId)
+        if (vfcId !== null && typeof srcVideo.cancelVideoFrameCallback === 'function') {
+          srcVideo.cancelVideoFrameCallback(vfcId)
         }
+        if (timerId !== null) clearInterval(timerId)
         srcVideo.srcObject = null
         if (camVideo) camVideo.srcObject = null
       }
