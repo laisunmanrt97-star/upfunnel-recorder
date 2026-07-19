@@ -260,9 +260,8 @@
   // ── Flujo de grabación ───────────────────────────────────────────────────
 
   async function startFlow () {
-    // Guardado en streaming: pedir destino ANTES de getDisplayMedia (gesto de usuario).
-    // Si el usuario cancela, pickSaveTarget() devuelve 'memory' (fallback automático).
-    await Recorder.pickSaveTarget()
+    // Se graba en memoria, al terminar se previsualiza y el usuario decide si descargar o grabar otro.
+    // Sin diálogo de guardado previo: flujo rápido sin interrupciones.
 
     // 1. Abrir vista previa flotante de la cámara si corresponde
     // (Document Picture-in-Picture: se ve aunque cambies de ventana)
@@ -376,6 +375,7 @@
       preview.src = lastObjectUrl
       preview.hidden = false
       btnDownload.hidden = false
+      document.querySelector('.done-controls').hidden = false
     }
 
     showView('done')
@@ -425,6 +425,30 @@
       showView('setup')
       Devices.startVuMeter()
       setStatus('LISTO')
+    })
+
+    // Velocidad de reproducción
+    document.querySelectorAll('.speed-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const speed = parseFloat(btn.dataset.speed)
+        const preview = document.getElementById('done-preview')
+        preview.playbackRate = speed
+        document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b === btn))
+      })
+    })
+
+    // Picture-in-Picture
+    document.getElementById('btn-pip').addEventListener('click', async () => {
+      const preview = document.getElementById('done-preview')
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture()
+        } else {
+          await preview.requestPictureInPicture()
+        }
+      } catch (err) {
+        console.warn('[SnapRec] PiP:', err.name)
+      }
     })
   }
 

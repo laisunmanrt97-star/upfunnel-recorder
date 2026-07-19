@@ -283,6 +283,13 @@
       <h2>[ GRABACIÓN LISTA ]</h2>
       <p id="done-info" class="muted"></p>
       <video id="done-preview" controls hidden></video>
+      <div class="btn-row done-controls" hidden>
+        <button class="opt-btn speed-btn active" data-speed="1">1×</button>
+        <button class="opt-btn speed-btn" data-speed="0.5">0.5×</button>
+        <button class="opt-btn speed-btn" data-speed="1.5">1.5×</button>
+        <button class="opt-btn speed-btn" data-speed="2">2×</button>
+        <button id="btn-pip" class="opt-btn">⊞ PiP</button>
+      </div>
       <div class="btn-row">
         <button id="btn-download" class="big-btn" hidden aria-label="Descargar video">↓ DESCARGAR</button>
         <button id="btn-again" class="big-btn" aria-label="Hacer otra grabación">● GRABAR OTRO</button>
@@ -294,6 +301,7 @@
   <div id="countdown" hidden>
     <span id="countdown-num">3</span>
     <p id="countdown-hint"></p>
+    <button id="countdown-skip" class="opt-btn">SALTAR →</button>
   </div>
 
   <div id="statusbar">

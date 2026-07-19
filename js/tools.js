@@ -341,15 +341,26 @@ const Tools = (() => {
       const el = document.getElementById('countdown')
       const num = document.getElementById('countdown-num')
       const hintEl = document.getElementById('countdown-hint')
+      const skipBtn = document.getElementById('countdown-skip')
       el.hidden = false
       num.textContent = n
       hintEl.textContent = hint
+      skipBtn.hidden = false
+
+      function done () {
+        clearInterval(iv)
+        el.hidden = true
+        skipBtn.hidden = true
+        skipBtn.removeEventListener('click', done)
+        resolve()
+      }
+
+      skipBtn.addEventListener('click', done)
+
       const iv = setInterval(() => {
         n--
         if (n <= 0) {
-          clearInterval(iv)
-          el.hidden = true
-          resolve()
+          done()
         } else {
           num.textContent = n
         }

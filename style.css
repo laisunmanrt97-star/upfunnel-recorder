@@ -298,6 +298,7 @@ select {
   height: 100%;
   display: block;
   object-fit: cover;
+  transform: scaleX(-1);
 }
 .cam-preview-label {
   position: absolute;
@@ -440,6 +441,7 @@ select {
   text-shadow: 0 0 40px rgba(0, 229, 255, 0.5);
 }
 #countdown-hint { color: var(--uf-text); font-size: 16px; font-weight: 500; }
+#countdown-skip { margin-top: 16px; }
 
 /* ── Statusbar ── */
 #statusbar {
