@@ -264,8 +264,11 @@
     // Si el usuario cancela, pickSaveTarget() devuelve 'memory' (fallback automático).
     await Recorder.pickSaveTarget()
 
-    // 1. La vista previa se cierra: la cámara se incrusta limpia en el video
-    Bubble.close()
+    // 1. Abrir vista previa flotante de la cámara si corresponde
+    // (Document Picture-in-Picture: se ve aunque cambies de ventana)
+    if (camMode === 'embed' && !Bubble.isOpen()) {
+      await Bubble.open().catch(() => {})
+    }
 
     // 2. Compartir pantalla + (opcional) seleccionar área + preparar recorder
     setStatus('PREPARANDO…')
@@ -295,6 +298,9 @@
 
     document.querySelector('.rec-topbar').classList.remove('paused')
     document.getElementById('btn-pause').textContent = '‖ PAUSAR'
+    // Sincronizar título escrito antes de la cuenta regresiva
+    const titleInput = document.getElementById('rec-title')
+    Recorder.setTitle(titleInput.value)
     mountStudio()
     updateMetricsOnce()
     startMetricsInterval()
@@ -345,7 +351,8 @@
       mode: mode,
       quality: quality,
       camera: camMode,
-      name: result.name
+      name: result.name,
+      title: Recorder.getTitle() || result.name
     }).catch(() => {})
 
     const info = document.getElementById('done-info')
@@ -377,6 +384,10 @@
 
   function wireRecordingControls () {
     document.getElementById('btn-record').addEventListener('click', startFlow)
+
+    document.getElementById('rec-title').addEventListener('input', (e) => {
+      Recorder.setTitle(e.target.value)
+    })
 
     document.getElementById('btn-pause').addEventListener('click', () => {
       const state = Recorder.togglePause()

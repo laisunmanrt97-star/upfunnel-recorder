@@ -82,16 +82,18 @@ const Dashboard = (() => {
       tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Todavía no hay grabaciones.</td></tr>'
       return
     }
-    tbody.innerHTML = list.map(r => `
-      <tr>
+    tbody.innerHTML = list.map(r => {
+      const label = r.title && r.title !== r.name ? r.title : r.name
+      return `<tr>
         <td>${fmtDate(r.timestamp)} ${fmtTime(r.timestamp)}</td>
+        <td title="${label}">${label.length > 30 ? label.slice(0, 30) + '…' : label}</td>
         <td>${fmtDuration(r.duration)}</td>
         <td>${fmtSize(r.size)}</td>
         <td>${r.width}×${r.height}</td>
         <td>${r.quality || '—'}</td>
         <td>${r.camera === 'embed' ? '📷' : '—'}</td>
-      </tr>
-    `).join('')
+      </tr>`
+    }).join('')
   }
 
   // ── Gráfica de barras (grabaciones por día) ─────────────────────────────

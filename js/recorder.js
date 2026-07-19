@@ -28,6 +28,10 @@ const Recorder = (() => {
   let lastTick      = 0
 
   let onStopCallback = null
+  let sessionTitle = ''
+
+  function setTitle (t) { sessionTitle = t.trim() }
+  function getTitle () { return sessionTitle }
 
   function pickMimeType () {
     const candidates = [
@@ -41,7 +45,12 @@ const Recorder = (() => {
   function suggestedName () {
     const d = new Date()
     const pad = n => String(n).padStart(2, '0')
-    return `snaprec-${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}.webm`
+    const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
+    if (sessionTitle) {
+      const safe = sessionTitle.replace(/[^a-zA-Z0-9áéíóúñ\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60)
+      return `snaprec-${safe}-${ts}.webm`
+    }
+    return `snaprec-${ts}.webm`
   }
 
   // Debe llamarse DENTRO del gesto de usuario (click en GRABAR), antes de
@@ -263,5 +272,5 @@ const Recorder = (() => {
     }
   }
 
-  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio, getInfo, getCameraStream: () => camStream }
+  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio, getInfo, getCameraStream: () => camStream, setTitle, getTitle }
 })()

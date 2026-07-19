@@ -80,7 +80,7 @@
         <div class="btn-row" style="margin-top:8px">
           <button id="btn-bubble" class="opt-btn" aria-label="Abrir o cerrar vista previa de la cámara">VISTA PREVIA: OFF</button>
         </div>
-        <p class="muted">Tu cámara se dibuja limpia dentro del video (solo el círculo, sin marcos ni controles), en la esquina que elijas. La vista previa es solo para ti — se cierra sola al grabar y no aparece en el video.</p>
+        <p class="muted">Tu cámara se dibuja limpia dentro del video (solo el círculo, sin marcos ni controles), en la esquina que elijas. La vista previa flotante (PiP) se abre automáticamente al grabar — se ve encima de cualquier ventana para que sepas si estorbás en la toma.</p>
       </section>
 
       <section class="panel">
@@ -156,6 +156,7 @@
             <thead>
               <tr>
                 <th>Fecha</th>
+                <th>Título</th>
                 <th>Duración</th>
                 <th>Tamaño</th>
                 <th>Resolución</th>
@@ -164,7 +165,7 @@
               </tr>
             </thead>
             <tbody id="dash-table-body">
-              <tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>
+              <tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>
             </tbody>
           </table>
         </div>
@@ -188,6 +189,7 @@
     <div class="rec-topbar">
       <div id="rec-indicator"><span id="rec-dot">●</span> REC</div>
       <div id="rec-timer">00:00</div>
+      <input id="rec-title" class="rec-title-input" type="text" placeholder="Título del video…" maxlength="80" spellcheck="false">
       <div class="btn-row">
         <button id="btn-pause" class="opt-btn" aria-label="Pausar o reanudar grabación">‖ PAUSAR</button>
         <button id="btn-stop" class="opt-btn danger" aria-label="Detener grabación">■ DETENER</button>
