@@ -1,0 +1,17 @@
+{
+  "name": "snaprec",
+  "version": "1.2.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "npx serve . -l 8080",
+    "test": "playwright test",
+    "test:security": "playwright test --project=security-hardened",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.47.0",
+    "serve": "^14.2.0"
+  }
+}

@@ -7,10 +7,13 @@ const Devices = (() => {
   const vuBar     = document.getElementById('vu-bar')
   const stMic     = document.getElementById('st-mic')
   const stCam     = document.getElementById('st-cam')
+  const micTestBtn = document.getElementById('btn-mic-test')
 
   let micStream = null   // stream vivo del mic para el vúmetro (y reutilizado al grabar)
   let audioCtx  = null
   let vuRaf     = null
+  let vuSource  = null
+  let vuAnalyser = null
 
   const PREF_KEY = 'snaprec-devices'
 
@@ -25,20 +28,8 @@ const Devices = (() => {
     }))
   }
 
-  // Pide permiso una vez para que enumerateDevices devuelva labels reales
-  async function requestPermission () {
-    try {
-      const s = await navigator.mediaDevices.getUserMedia({ audio: true })
-      s.getTracks().forEach(t => t.stop())
-      return true
-    } catch (err) {
-      console.warn('[SnapRec] Permiso de micrófono denegado:', err.name)
-      return false
-    }
-  }
-
   function fillSelect (select, devices, savedId) {
-    select.innerHTML = ''
+    select.replaceChildren()
     if (devices.length === 0) {
       const opt = document.createElement('option')
       opt.value = ''
@@ -78,18 +69,20 @@ const Devices = (() => {
       })
     } catch (err) {
       console.warn('[SnapRec] No se pudo abrir el micrófono:', err.name)
+      updateMicTestButton(false)
       return
     }
-    audioCtx = audioCtx || new AudioContext()
-    if (audioCtx.state === 'suspended') audioCtx.resume()
-    const source   = audioCtx.createMediaStreamSource(micStream)
-    const analyser = audioCtx.createAnalyser()
-    analyser.fftSize = 256
-    source.connect(analyser)
-    const data = new Uint8Array(analyser.frequencyBinCount)
+    audioCtx = new AudioContext()
+    if (audioCtx.state === 'suspended') await audioCtx.resume()
+    vuSource = audioCtx.createMediaStreamSource(micStream)
+    vuAnalyser = audioCtx.createAnalyser()
+    vuAnalyser.fftSize = 256
+    vuSource.connect(vuAnalyser)
+    const data = new Uint8Array(vuAnalyser.frequencyBinCount)
+    updateMicTestButton(true)
 
     function tick () {
-      analyser.getByteTimeDomainData(data)
+      vuAnalyser.getByteTimeDomainData(data)
       let peak = 0
       for (let i = 0; i < data.length; i++) {
         peak = Math.max(peak, Math.abs(data[i] - 128))
@@ -103,7 +96,17 @@ const Devices = (() => {
   function stopVuMeter () {
     if (vuRaf) { cancelAnimationFrame(vuRaf); vuRaf = null }
     if (micStream) { micStream.getTracks().forEach(t => t.stop()); micStream = null }
+    if (vuSource) { vuSource.disconnect(); vuSource = null }
+    if (vuAnalyser) { vuAnalyser.disconnect(); vuAnalyser = null }
+    if (audioCtx) { audioCtx.close().catch(() => {}); audioCtx = null }
     vuBar.style.width = '0%'
+    updateMicTestButton(false)
+  }
+
+  function updateMicTestButton (active) {
+    micTestBtn.textContent = active ? 'DETENER PRUEBA' : 'PROBAR MICRÓFONO'
+    micTestBtn.classList.toggle('active', active)
+    micTestBtn.setAttribute('aria-pressed', String(active))
   }
 
   // Devuelve un stream FRESCO del mic elegido (para grabar)
@@ -127,11 +130,18 @@ const Devices = (() => {
   // ── Init ──────────────────────────────────────────────────────────────────
 
   async function init () {
-    const ok = await requestPermission()
     await refresh()
-    if (ok) startVuMeter()
 
-    micSelect.addEventListener('change', () => { savePrefs(); updateStatusbar(); startVuMeter() })
+    micTestBtn.addEventListener('click', () => {
+      if (micStream) stopVuMeter()
+      else startVuMeter()
+    })
+    micSelect.addEventListener('change', () => {
+      const wasTesting = !!micStream
+      savePrefs()
+      updateStatusbar()
+      if (wasTesting) startVuMeter()
+    })
     camSelect.addEventListener('change', () => { savePrefs(); updateStatusbar(); Bubble.onCameraChange() })
     navigator.mediaDevices.addEventListener('devicechange', refresh)
   }

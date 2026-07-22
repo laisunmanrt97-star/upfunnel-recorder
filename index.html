@@ -3,8 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; manifest-src 'self'; trusted-types snaprec-worker; require-trusted-types-for 'script'; upgrade-insecure-requests">
   <title>SnapRec</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=129">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#080C14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/assets/icon-192.svg">
 </head>
 <body>
 
@@ -22,93 +28,288 @@
       <p class="muted">Usa Google Chrome o Microsoft Edge actualizados.</p>
     </div>
 
-    <!-- Modo -->
-    <section class="panel">
-      <h2>[ MODO ]</h2>
-      <div class="btn-row" role="radiogroup" aria-label="Modo de grabación">
-        <button class="opt-btn active" data-mode="full" aria-label="Grabar pantalla completa">PANTALLA COMPLETA</button>
-        <button class="opt-btn" data-mode="area" aria-label="Grabar área seleccionada">ÁREA</button>
-      </div>
-      <p id="area-warning" class="warn" hidden>⚠ El modo área usa más CPU. Si tu PC sufre, usa pantalla completa.</p>
-    </section>
+    <!-- Pestañas de modo principal -->
+    <div class="btn-row" id="main-tabs" role="tablist" aria-label="Modo de la herramienta">
+      <button class="tab-btn active" data-tab="record" role="tab" aria-label="Modo grabar video">🎬 GRABAR VIDEO</button>
+      <button class="tab-btn" data-tab="capture" role="tab" aria-label="Modo tomar captura">📸 TOMAR CAPTURA</button>
+      <button class="tab-btn" data-tab="dashboard" role="tab" aria-label="Estadísticas">📊 ESTADÍSTICAS</button>
+    </div>
 
-    <!-- Calidad -->
-    <section class="panel">
-      <h2>[ CALIDAD ]</h2>
-      <div class="btn-row" role="radiogroup" aria-label="Calidad de grabación">
-        <button class="opt-btn active" data-quality="native24" aria-label="Calidad nativa 24 fps">NATIVA · 24 FPS</button>
-        <button class="opt-btn" data-quality="light15" aria-label="Calidad ligera 15 fps">LIGERA · 15 FPS</button>
-        <button class="opt-btn" data-quality="hd720" aria-label="Calidad 720p 24 fps">720P · 24 FPS</button>
-      </div>
-    </section>
+    <!-- ── Panel GRABAR ── -->
+    <div id="setup-record">
 
-    <!-- Micrófono -->
-    <section class="panel">
-      <h2>[ MICRÓFONO ]</h2>
-      <select id="mic-select" aria-label="Seleccionar micrófono"></select>
-      <div id="vu-wrap" aria-hidden="true">
-        <div id="vu-bar"></div>
-      </div>
-      <p class="muted">Habla — la barra debe moverse si tu micrófono funciona.</p>
-    </section>
+      <section class="panel">
+        <h2>[ MODO ]</h2>
+        <div class="btn-row" role="radiogroup" aria-label="Modo de grabación">
+          <button class="opt-btn active" data-mode="full" aria-label="Grabar pantalla completa">PANTALLA COMPLETA</button>
+          <button class="opt-btn" data-mode="area" aria-label="Grabar área seleccionada">ÁREA</button>
+        </div>
+        <p id="area-warning" class="warn" hidden>⚠ El modo área usa más CPU. Si tu PC sufre, usa pantalla completa.</p>
+      </section>
 
-    <!-- Cámara -->
-    <section class="panel">
-      <h2>[ CÁMARA ]</h2>
-      <select id="cam-select" aria-label="Seleccionar cámara"></select>
-      <div class="btn-row" role="radiogroup" aria-label="Cámara en el video">
-        <button class="opt-btn cam-mode active" data-cammode="embed" aria-label="Incrustar cámara en el video">EN EL VIDEO</button>
-        <button class="opt-btn cam-mode" data-cammode="off" aria-label="Grabar sin cámara">SIN CÁMARA</button>
-      </div>
-      <div class="btn-row" id="cam-embed-opts" style="margin-top:8px">
-        <button class="opt-btn bubble-opt active" data-shape="circle" aria-label="Forma circular">○</button>
-        <button class="opt-btn bubble-opt" data-shape="rect" aria-label="Forma rectangular">□</button>
-        <button class="opt-btn bubble-size" data-size="s" aria-label="Tamaño pequeño">S</button>
-        <button class="opt-btn bubble-size active" data-size="m" aria-label="Tamaño mediano">M</button>
-        <button class="opt-btn bubble-size" data-size="l" aria-label="Tamaño grande">L</button>
-        <button class="opt-btn cam-corner" data-corner="tl" aria-label="Esquina superior izquierda">↖</button>
-        <button class="opt-btn cam-corner" data-corner="tr" aria-label="Esquina superior derecha">↗</button>
-        <button class="opt-btn cam-corner" data-corner="bl" aria-label="Esquina inferior izquierda">↙</button>
-        <button class="opt-btn cam-corner active" data-corner="br" aria-label="Esquina inferior derecha">↘</button>
-      </div>
-      <div class="btn-row" style="margin-top:8px">
-        <button id="btn-bubble" class="opt-btn" aria-label="Abrir o cerrar vista previa de la cámara">VISTA PREVIA: OFF</button>
-      </div>
-      <p class="muted">Tu cámara se dibuja limpia dentro del video (solo el círculo, sin marcos ni controles), en la esquina que elijas. La vista previa es solo para ti — se cierra sola al grabar y no aparece en el video.</p>
-    </section>
+      <section class="panel">
+        <h2>[ CALIDAD ]</h2>
+        <div class="btn-row" role="radiogroup" aria-label="Calidad de grabación">
+          <button class="opt-btn active" data-quality="native24" aria-label="Calidad nativa 24 fps">NATIVA · 24 FPS</button>
+          <button class="opt-btn" data-quality="light15" aria-label="Calidad ligera 15 fps">LIGERA · 15 FPS</button>
+          <button class="opt-btn" data-quality="hd720" aria-label="Calidad 720p 24 fps">720P · 24 FPS</button>
+        </div>
+        <p id="cpu-warning" class="warn" hidden>⚠ Tu PC tiene pocos núcleos. Se recomienda LIGERA o 720p si el video se lagea.</p>
+      </section>
 
-    <!-- Grabar -->
-    <section class="panel">
-      <button id="btn-record" class="big-btn" aria-label="Iniciar grabación">● GRABAR</button>
-      <p class="muted">Al iniciar: eliges dónde guardar el video → Chrome te pide qué pantalla compartir → cuenta regresiva de 3 segundos.</p>
-    </section>
+      <section class="panel">
+        <h2>[ MICRÓFONO ]</h2>
+        <select id="mic-select" aria-label="Seleccionar micrófono"></select>
+        <button id="btn-mic-test" class="opt-btn mic-test-btn" aria-pressed="false">PROBAR MICRÓFONO</button>
+        <div id="vu-wrap" aria-hidden="true">
+          <div id="vu-bar"></div>
+        </div>
+        <p class="muted">El micrófono solo se activa al probarlo o al iniciar una grabación.</p>
+      </section>
+
+      <section class="panel">
+        <h2>[ CÁMARA ]</h2>
+        <select id="cam-select" aria-label="Seleccionar cámara"></select>
+        <div class="btn-row" role="radiogroup" aria-label="Cámara en el video">
+          <button class="opt-btn cam-mode active" data-cammode="embed" aria-label="Incrustar cámara en el video">EN EL VIDEO</button>
+          <button class="opt-btn cam-mode" data-cammode="off" aria-label="Grabar sin cámara">SIN CÁMARA</button>
+        </div>
+        <div class="btn-row spaced-row" id="cam-embed-opts">
+          <button class="opt-btn bubble-opt active" data-shape="circle" aria-label="Forma circular">○</button>
+          <button class="opt-btn bubble-opt" data-shape="rect" aria-label="Forma rectangular">□</button>
+          <button class="opt-btn bubble-size" data-size="s" aria-label="Tamaño pequeño">S</button>
+          <button class="opt-btn bubble-size active" data-size="m" aria-label="Tamaño mediano">M</button>
+          <button class="opt-btn bubble-size" data-size="l" aria-label="Tamaño grande">L</button>
+          <button class="opt-btn cam-corner" data-corner="tl" aria-label="Esquina superior izquierda">↖</button>
+          <button class="opt-btn cam-corner" data-corner="tr" aria-label="Esquina superior derecha">↗</button>
+          <button class="opt-btn cam-corner" data-corner="bl" aria-label="Esquina inferior izquierda">↙</button>
+          <button class="opt-btn cam-corner active" data-corner="br" aria-label="Esquina inferior derecha">↘</button>
+        </div>
+        <div class="btn-row spaced-row">
+          <button id="btn-bubble" class="opt-btn" aria-label="Abrir o cerrar vista previa de la cámara">VISTA PREVIA: OFF</button>
+        </div>
+        <p class="muted">Tu cámara se dibuja limpia dentro del video. Elegí una esquina inicial y, durante la grabación, arrastrala dentro del estudio flotante para colocarla libremente. Mover la ventana del estudio solo mueve el panel de control.</p>
+      </section>
+
+      <section class="panel">
+        <label class="check-option" for="save-direct">
+          <input id="save-direct" type="checkbox">
+          Guardar directamente en el disco
+        </label>
+        <button id="btn-record" class="big-btn" aria-label="Iniciar grabación">● GRABAR</button>
+        <p class="muted">El guardado directo evita acumular el video en memoria. Si está desactivado, las grabaciones se detienen a los 30 minutos.</p>
+        <p class="muted">💡 El estudio flotante muestra la composición que queda en el MP4. Las marcas se ven en el video grabado, pero una página web no puede dibujar directamente encima de otra aplicación.</p>
+      </section>
+
+    </div>
+
+    <!-- ── Panel CAPTURAR ── -->
+    <div id="setup-capture" hidden>
+
+      <section class="panel">
+        <h2>[ ÁREA DE CAPTURA ]</h2>
+        <div class="btn-row" role="radiogroup" aria-label="Área de captura">
+          <button class="opt-btn active" data-capmode="full" aria-label="Capturar todo">TODO</button>
+          <button class="opt-btn" data-capmode="area" aria-label="Capturar área seleccionada">ÁREA</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <button id="btn-capture" class="big-btn" aria-label="Tomar captura">📸 CAPTURAR</button>
+        <button id="btn-cap-stop" class="opt-btn" aria-label="Detener pantalla compartida" hidden>⏹ DETENER PANTALLA</button>
+        <p class="muted">Chrome te pide qué compartir (pantalla o ventana) → cuenta regresiva de 3 segundos para que cambies a la app que quieres capturar → suena un aviso y vuelves aquí a editar.</p>
+        <p class="muted">La pantalla compartida permanece activa mientras editas. Podés detenerla manualmente con el botón "DETENER PANTALLA" o se detiene al cerrar el editor.</p>
+      </section>
+
+    </div>
+
+    <!-- ── Panel ESTADÍSTICAS ── -->
+    <div id="setup-dashboard" hidden>
+
+      <section class="panel privacy-panel">
+        <h2>[ PRIVACIDAD LOCAL ]</h2>
+        <label class="check-option" for="dash-stats-enabled">
+          <input id="dash-stats-enabled" type="checkbox">
+          Guardar estadísticas de futuras grabaciones
+        </label>
+        <label class="privacy-field" for="dash-retention">
+          Conservar metadatos
+          <select id="dash-retention">
+            <option value="30">30 días</option>
+            <option value="90">90 días</option>
+            <option value="365">1 año</option>
+            <option value="forever">Para siempre</option>
+          </select>
+        </label>
+        <button id="dash-clear-all" class="opt-btn danger">BORRAR TODO EL HISTORIAL</button>
+        <p class="muted">Solo se almacenan metadatos en este navegador, nunca los videos. Desactivar las estadísticas no elimina el historial existente.</p>
+      </section>
+
+      <div class="dash-filters">
+        <button class="opt-btn dash-filter-btn active" data-period="day">Hoy</button>
+        <button class="opt-btn dash-filter-btn" data-period="week">Semana</button>
+        <button class="opt-btn dash-filter-btn" data-period="month">Mes</button>
+        <button class="opt-btn dash-filter-btn" data-period="year">Año</button>
+        <button class="opt-btn dash-filter-btn" data-period="all">Todo</button>
+      </div>
+
+      <div class="dash-kpis">
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Grabaciones</span>
+          <span class="stat-card-value" id="dash-count">0</span>
+          <span class="stat-card-sub" id="dash-period-label">—</span>
+        </div>
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Duración total</span>
+          <span class="stat-card-value" id="dash-duration">—</span>
+          <span class="stat-card-sub">hh:mm</span>
+        </div>
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Tamaño total</span>
+          <span class="stat-card-value" id="dash-size">—</span>
+          <span class="stat-card-sub">MB</span>
+        </div>
+        <div class="stat-card kpi">
+          <span class="stat-card-label">Promedio</span>
+          <span class="stat-card-value" id="dash-avg">—</span>
+          <span class="stat-card-sub">por grabación</span>
+        </div>
+      </div>
+
+      <div class="dash-chart-wrap">
+        <canvas id="dash-chart" height="250" aria-label="Gráfica de grabaciones por día"></canvas>
+        <p id="dash-chart-fallback" class="muted" hidden>La gráfica no está disponible en este navegador.</p>
+      </div>
+
+      <div id="dash-period-cards" class="dash-period-cards"></div>
+
+      <div class="panel panel-flush">
+        <div class="table-scroll">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Título</th>
+                <th>Duración</th>
+                <th>Tamaño</th>
+                <th>Resolución</th>
+                <th>Calidad</th>
+                <th>Cámara</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="dash-table-body">
+              <tr><td colspan="8" class="muted dash-empty">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
 
   </main>
 
   <!-- ══ VISTA: SELECCIÓN DE ÁREA ══════════════════════════════════ -->
   <div id="view-area" class="view" hidden>
-    <p id="area-hint">Arrastra para seleccionar el área a grabar — ESC cancela</p>
+    <p id="area-hint">Arrastra para seleccionar el área — ESC cancela</p>
     <div id="area-stage">
       <canvas id="area-frame"></canvas>
       <canvas id="area-select"></canvas>
     </div>
   </div>
 
-  <!-- ══ VISTA: GRABANDO ═══════════════════════════════════════════ -->
-  <main id="view-rec" class="view" hidden>
-    <div class="panel rec-panel">
+  <!-- ══ VISTA: GRABANDO (ESTUDIO) ═════════════════════════════════ -->
+  <main id="view-rec" class="view wide" hidden>
+    <div class="rec-topbar">
       <div id="rec-indicator"><span id="rec-dot">●</span> REC</div>
       <div id="rec-timer">00:00</div>
+      <input id="rec-title" class="rec-title-input" type="text" placeholder="Título del video…" maxlength="80" spellcheck="false">
       <div class="btn-row">
         <button id="btn-pause" class="opt-btn" aria-label="Pausar o reanudar grabación">‖ PAUSAR</button>
         <button id="btn-stop" class="opt-btn danger" aria-label="Detener grabación">■ DETENER</button>
+        <button id="btn-toggle-panel" class="opt-btn active" aria-label="Ocultar o mostrar panel de anotaciones">✏ PANEL</button>
+        <button id="btn-cam-full" class="opt-btn" aria-label="Alternar cámara a pantalla completa">🎥 CÁMARA</button>
       </div>
-      <p class="muted">Puedes minimizar esta pestaña — la grabación sigue.<br>
-      También puedes detener con la barra "Dejar de compartir" de Chrome.</p>
+    </div>
+
+    <div id="rec-body">
+      <div id="studio-wrap">
+        <video id="rec-preview" autoplay muted playsinline></video>
+      </div>
+
+      <aside id="rec-sidepanel" class="side-panel">
+        <div id="side-annotate-wrap">
+          <canvas id="rec-annotate" aria-label="Superficie de anotación en vivo"></canvas>
+        </div>
+        <div class="tools-bar" id="rec-tools" role="toolbar" aria-label="Herramientas de anotación en vivo">
+          <button class="tool-btn active" data-tool="pen" title="Dibujo libre" aria-label="Dibujo libre">✏</button>
+          <button class="tool-btn" data-tool="highlight" title="Resaltador" aria-label="Resaltador">H</button>
+          <button class="tool-btn" data-tool="arrow" title="Flecha" aria-label="Flecha">→</button>
+          <button class="tool-btn" data-tool="rect" title="Rectángulo" aria-label="Rectángulo">□</button>
+          <button class="tool-btn" data-tool="ellipse" title="Círculo" aria-label="Círculo">○</button>
+          <button class="tool-btn" data-tool="text" title="Texto" aria-label="Texto">T</button>
+          <span class="tools-sep"></span>
+          <span class="ink-swatches" data-for="rec"></span>
+          <span class="tools-sep"></span>
+          <button class="tool-btn" data-act="size-dec" title="Reducir grosor" aria-label="Reducir grosor">−</button>
+          <span class="size-val" data-for="rec">4</span>
+          <button class="tool-btn" data-act="size-inc" title="Aumentar grosor" aria-label="Aumentar grosor">+</button>
+          <span class="tools-sep"></span>
+          <button class="tool-btn" data-act="undo" title="Deshacer" aria-label="Deshacer">↩</button>
+          <button class="tool-btn wide-btn" data-act="clear" title="Limpiar anotaciones" aria-label="Limpiar todas las anotaciones">LIMPIAR</button>
+        </div>
+      </aside>
+    </div>
+
+    <div id="rec-metrics" class="metrics-bar">
+      <span id="met-res">—×—</span>
+      <span id="met-codec">—</span>
+      <span id="met-size">0 MB</span>
+    </div>
+
+    <p class="muted center">El estudio muestra el video que se está grabando. Dibujá sobre esa vista y arrastrá la cámara dentro del video para moverla. El panel no modifica visualmente otras aplicaciones; las marcas quedan en el MP4 final. ⚠ Si minimizás la pestaña, la composición puede ralentizarse.</p>
+  </main>
+
+  <!-- ══ VISTA: EDITOR DE CAPTURA ══════════════════════════════════ -->
+  <main id="view-edit" class="view wide" hidden>
+    <div class="rec-topbar">
+      <span id="edit-dims" class="muted">—</span>
+      <div class="btn-row">
+        <button id="btn-copy" class="opt-btn" aria-label="Copiar captura al portapapeles">⧉ COPIAR</button>
+        <button id="btn-download-png" class="opt-btn" aria-label="Descargar captura como PNG">↓ PNG</button>
+          <button id="btn-recapture" class="opt-btn" aria-label="Tomar otra captura">📸 OTRA</button>
+          <button id="btn-edit-stop" class="opt-btn" aria-label="Detener pantalla compartida" hidden>⏹ PANTALLA</button>
+          <button id="btn-edit-close" class="opt-btn danger" aria-label="Cerrar editor">× CERRAR</button>
+      </div>
+    </div>
+
+    <div id="edit-wrap">
+      <canvas id="edit-canvas"></canvas>
+    </div>
+
+    <div class="tools-bar" id="edit-tools" role="toolbar" aria-label="Herramientas de edición">
+      <button class="tool-btn active" data-tool="pen" title="Dibujo libre" aria-label="Dibujo libre">✏</button>
+      <button class="tool-btn" data-tool="highlight" title="Resaltador" aria-label="Resaltador">H</button>
+      <button class="tool-btn" data-tool="arrow" title="Flecha" aria-label="Flecha">→</button>
+      <button class="tool-btn" data-tool="rect" title="Rectángulo" aria-label="Rectángulo">□</button>
+      <button class="tool-btn" data-tool="ellipse" title="Círculo" aria-label="Círculo">○</button>
+      <button class="tool-btn" data-tool="text" title="Texto" aria-label="Texto">T</button>
+      <button class="tool-btn" data-tool="fill" title="Censura (relleno negro)" aria-label="Censura relleno negro">■</button>
+      <button class="tool-btn" data-tool="pixelate" title="Pixelar" aria-label="Pixelar área">⊞</button>
+      <button class="tool-btn" data-tool="crop" title="Recortar" aria-label="Recortar captura">✂</button>
+      <span class="tools-sep"></span>
+      <span class="ink-swatches" data-for="edit"></span>
+      <span class="tools-sep"></span>
+      <button class="tool-btn" data-act="size-dec" title="Reducir grosor" aria-label="Reducir grosor">−</button>
+      <span class="size-val" data-for="edit">4</span>
+      <button class="tool-btn" data-act="size-inc" title="Aumentar grosor" aria-label="Aumentar grosor">+</button>
+      <span class="tools-sep"></span>
+      <button class="tool-btn" data-act="undo" title="Deshacer" aria-label="Deshacer">↩</button>
+      <button class="tool-btn" data-act="redo" title="Rehacer" aria-label="Rehacer">↪</button>
     </div>
   </main>
 
-  <!-- ══ VISTA: RESULTADO ══════════════════════════════════════════ -->
+  <!-- ══ VISTA: RESULTADO (VIDEO) ══════════════════════════════════ -->
   <main id="view-done" class="view" hidden>
     <div class="panel">
       <h2>[ GRABACIÓN LISTA ]</h2>
@@ -122,18 +323,28 @@
   </main>
 
   <!-- ══ COUNTDOWN ═════════════════════════════════════════════════ -->
-  <div id="countdown" hidden><span id="countdown-num">3</span></div>
-
-  <div id="statusbar">
-    <div class="status-item">MIC: <span id="st-mic">—</span></div>
-    <div class="status-item">CÁMARA: <span id="st-cam">—</span></div>
-    <div class="status-item" style="margin-left:auto">SNAPREC v1.0</div>
+  <div id="countdown" hidden role="alert" aria-live="assertive">
+    <span id="countdown-num">3</span>
+    <p id="countdown-hint"></p>
+    <button id="countdown-skip" class="opt-btn">SALTAR →</button>
   </div>
 
-  <script src="js/devices.js"></script>
-  <script src="js/bubble.js"></script>
-  <script src="js/recorder.js"></script>
-  <script src="js/crop.js"></script>
-  <script src="js/app.js"></script>
+  <div id="statusbar" role="status" aria-live="polite">
+    <div class="status-item">MIC: <span id="st-mic">—</span></div>
+    <div class="status-item">CÁMARA: <span id="st-cam">—</span></div>
+    <div class="status-item status-spacer">SNAPREC v1.3.0</div>
+  </div>
+
+  <script src="assets/chart.umd.min.js?v=4.4.7"></script>
+  <script src="js/tools.js?v=129"></script>
+  <script src="js/devices.js?v=129"></script>
+  <script src="js/bubble.js?v=129"></script>
+  <script src="js/stats.js?v=129"></script>
+  <script src="js/dashboard.js?v=129"></script>
+  <script src="js/crop.js?v=129"></script>
+  <script src="js/recorder.js?v=129"></script>
+  <script src="js/capture.js?v=129"></script>
+  <script src="js/app.js?v=129"></script>
+  <script src="js/sw-register.js?v=129"></script>
 </body>
 </html>

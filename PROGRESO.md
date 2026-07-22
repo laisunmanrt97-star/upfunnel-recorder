@@ -1,6 +1,7 @@
 # SnapRec — Bitácora de desarrollo
 
-> Última actualización: 2026-07-10
+> Última actualización: 2026-07-22
+> Versión: 1.3.0
 > Stack: HTML + CSS + JS vanilla (sin frameworks ni build) · APIs web de captura · nginx en VPS
 
 ---
@@ -10,12 +11,12 @@
 Grabador de pantalla **web** para hacer videotutoriales sin congelar el PC (OBS no corre bien en esta máquina: i5-6300U 2 núcleos, 6 GB RAM). Vive en el VPS con HTTPS y clave; se abre en Chrome y graba:
 
 - **Pantalla** (completa o área seleccionada)
-- **Cámara USB** como burbuja flotante estilo Loom (Document Picture-in-Picture — siempre visible, queda grabada dentro del video, costo de CPU cero)
+- **Cámara USB** incrustada limpia dentro del video (círculo o rectángulo, esquina configurable, arrastrable en vivo)
 - **Micrófono** (inalámbrico o cualquier input), mezclado con el audio del sistema si se comparte
 
-El video se guarda **directo al disco del PC** (File System Access API — la RAM no crece con la duración) como `.webm`. Un solo usuario, protegido con basic auth de nginx.
+El video se mantiene en memoria hasta que el usuario lo descarga como `.mp4`, o se escribe directo a disco para grabaciones largas. Un solo usuario, protegido con basic auth de nginx.
 
-Hermano de SnapEdit. Desde 2026-07-11 ambos usan el **ADN visual Upfunnel**: Jet Black `#080C14`, Cyan Blue `#00E5FF`, Pure White, Slate Mist `#94A3B8`, tipografía Inter, glow cian sutil, logo oficial en el header (`assets/upfunnel-logo-horizontal-blanco-transparente.png`, mín. 152 px de ancho, nunca recrearlo).
+Hermano de SnapEdit. Ambos usan el **ADN visual Upfunnel**: Jet Black `#080C14`, Cyan Blue `#00E5FF`, Pure White, Slate Mist `#94A3B8`, tipografía Inter autoalojada, glow cian sutil, logo oficial en el header.
 
 ---
 
@@ -23,68 +24,111 @@ Hermano de SnapEdit. Desde 2026-07-11 ambos usan el **ADN visual Upfunnel**: Jet
 
 ```
 snaprec/
-├── index.html          ← vistas: setup / selección de área / grabando / resultado
-├── style.css           ← design system SnapEdit
+├── index.html            ← shell: setup / estudio / editor / resultado / dashboard
+├── style.css             ← design system Upfunnel + prefers-reduced-motion
+├── manifest.json         ← PWA manifest (standalone, icons SVG)
+├── sw.js                 ← service worker (cache v8, navegación por red)
+├── assets/
+│   ├── icon-192.svg      ← icono PWA 192px
+│   ├── icon-512.svg      ← icono PWA 512px
+│   ├── upfunnel-logo-horizontal-blanco-transparente.png
+│   ├── chart.umd.min.js  ← Chart.js autoalojado
+│   └── Inter-variable.woff2 ← Inter autoalojada
 ├── js/
-│   ├── app.js          ← máquina de estados, countdown, wiring de la UI
-│   ├── devices.js      ← selección de cámara/mic, vúmetro, persistencia
-│   ├── recorder.js     ← getDisplayMedia + mezcla de audio + MediaRecorder + guardado
-│   ├── bubble.js       ← burbuja de cámara (Document PiP, formas y tamaños)
-│   └── crop.js         ← modo área: frame congelado + selección + canvas.captureStream
+│   ├── app.js            ← máquina de estados, wiring de UI, atajos de teclado
+│   ├── devices.js        ← selección de cámara/mic, vúmetro, persistencia
+│   ├── recorder.js       ← getDisplayMedia + mezcla de audio + MediaRecorder + guardado
+│   ├── bubble.js         ← vista previa de cámara (Document PiP, formas y tamaños)
+│   ├── crop.js           ← modo área: frame congelado + selección + canvas.captureStream
+│   ├── capture.js        ← modo captura: stream vivo, countdown, editor
+│   ├── tools.js          ← herramientas de dibujo (pen, highlight, arrow, rect, ellipse, text, fill, pixelate, crop)
+│   ├── stats.js          ← IndexedDB: metadatos con retención configurable
+│   ├── dashboard.js      ← visualización: KPIs, gráfica Chart.js, tabla, filtros
+│   └── sw-register.js    ← registro del service worker con Trusted Types
 ├── deploy/
-│   └── nginx.conf.example  ← bloque nginx con basic auth (2 opciones: ruta o subdominio)
-└── PROGRESO.md
+│   └── nginx.conf.example  ← bloque nginx con CSP, HSTS, Basic Auth
+└── tests/
+    ├── smoke.spec.ts     ← 15 tests de integración (grabación, captura, stats, atajos)
+    └── security.spec.ts  ← 2 tests de seguridad (CSP, service worker)
 ```
 
 ---
 
-## Fases
+## Estado de fases (PLAN_DE_ACCION.md)
 
-| # | Contenido | Estado |
-|---|-----------|--------|
-| F1 | Esqueleto + selección de dispositivos + vúmetro | ✅ Código listo |
-| F2 | Grabación pantalla completa + guardado streaming | ✅ Código listo |
-| F3 | Burbuja de cámara (Document PiP) | ✅ Código listo |
-| F4 | Grabación de área (canvas crop) | ✅ Código listo |
-| F5 | Deploy al VPS (nginx + basic auth) | ⬜ Pendiente — necesita acceso/datos del VPS |
-| F6 | Prueba real (tutorial de ~2 min con cámara + mic) | ⬜ Pendiente — la hace Gabriel en su Chrome |
+| Fase | Contenido | Estado |
+|------|-----------|--------|
+| 1 | Integridad del núcleo (compositor Canvas siempre, finalización idempotente, limpieza de dispositivos) | ✅ |
+| 2 | PiP y ciclos repetidos (restaurar canvas/overlay/toolbar, limpiar listeners, dos grabaciones sin recargar) | ✅ |
+| 3 | Grabaciones largas (modo Normal/Larga, showSaveFilePicker, escritura serial de chunks, aborto seguro) | ✅ |
+| 4 | Memoria y rendimiento (bitrate dinámico, presupuesto de snapshots por resolución, limpieza de streams, botón detener captura) | ✅ |
+| 5 | Estadísticas (filtros por período, zona horaria local, escaneo por índice, renderizado como texto, Chart.js opcional) | ✅ |
+| 6 | PWA y seguridad (CSP completo, Inter autoalojada, service worker v8, cabeceras nginx, manifest) | ✅ |
+| 7 | Accesibilidad (ARIA en tabs/selectores, regiones vivas en countdown y estado, prefers-reduced-motion, fallback de gráfica) | ✅ |
+| 8 | Pruebas y documentación (17 tests automatizados, PROGRESO.md actualizado, desktop.ini ignorado) | ✅ |
+
+---
+
+## Features implementadas
+
+### v1.3.0 (2026-07-22)
+- **Fases 3-8 completadas**: grabaciones largas con escritura directa a disco, optimizaciones de memoria, estadísticas con Chart.js autoalojado, PWA con Inter autoalojada y CSP completo, accesibilidad ARIA/live regions/reduced-motion, 17 tests automatizados.
+- **Dashboard de estadísticas** con KPIs, gráfica de barras por día, tabla de últimas grabaciones, filtros (hoy/semana/mes/año/todo), retención configurable y opt-out de privacidad.
+- **Atajos de teclado**: herramientas (B/H/T/A/R/E/F/P/C), Ctrl+Z deshacer, Ctrl+Shift+Z rehacer, espacio pausar/reanudar, 1/2/3 cambiar pestañas, ESC cerrar editor.
+- **Service worker** con precache de assets, navegación por red (compatible con Basic Auth), Trusted Types, actualización automática.
+- **Burbuja/cámara incrustada**: composición limpia dentro del video (círculo o rectángulo), sin chrome de ventana, arrastrable en vivo, esquina configurable, persistencia en localStorage.
+
+### v1.2 — Estudio de anotación + modo captura (2026-07-11)
+- **Anotación en vivo**: pipeline por canvas compone pantalla + anotaciones + cámara; toolbar completa (dibujo, resaltador, flecha, rect, elipse, texto, 6 tintas, undo/clear); pausa para dibujar con calma.
+- **Modo CAPTURA**: stream reutilizable entre capturas, countdown 3s, editor con censura, pixelado y recorte, copia al portapapeles o PNG.
+- **tools.js**: módulo compartido de dibujo portado de SnapEdit.
+
+### v1.1 — Cámara incrustada + PiP
+- Cámara compositada dentro del video (no más ventana PiP con chrome).
+- Document Picture-in-Picture como vista previa opcional.
+- Grabación de área con canvas.captureStream.
+
+### v1.0 — Fundación
+- Grabación pantalla completa + área con selección.
+- Mezcla de audio (mic + sistema).
+- Guardado en memoria con descarga al final.
+- ADN visual Upfunnel.
 
 ---
 
 ## Decisiones técnicas clave
 
-- **Web y no escritorio**: elegido por el usuario; Chrome ya está corriendo (no suma RAM) y el pipeline nativo de MediaRecorder es mucho más liviano que OBS.
-- **Codec**: se intenta `h264` (encode por hardware si el navegador lo da), luego `vp8`. Salida `.webm` — YouTube lo acepta directo.
-- **Guardado en streaming**: `showSaveFilePicker` se llama DENTRO del click (la activación de usuario expira tras awaits largos); los chunks de MediaRecorder (1/segundo) se escriben directo al archivo. Fallback a Blob en memoria si el navegador no soporta la API.
-- **Countdown sin grabar basura**: el recorder arranca, se pausa durante el 3-2-1 y se reanuda al llegar a 0.
-- **Cámara incrustada (2026-07-11)**: la ventana Document PiP trae chrome de Chrome (barra de título "localhost", controles al hover) que salía grabado — rechazado por el usuario. Ahora la cámara se **composita dentro del video** vía el pipeline de canvas (círculo o rectángulo limpio con borde cian, esquina configurable ↖↗↙↘, tamaños S/M/L). La ventana PiP quedó como **vista previa** para encuadrarse antes de grabar: se cierra sola al iniciar (si quedara abierta saldría duplicada en el video). Verificado end-to-end con streams sintéticos: píxel de cámara en la esquina correcta del webm resultante.
-- **Costo del compositor**: con cámara incrustada (o modo área) el video pasa por canvas → más CPU que la captura directa. Si el PC sufre: preset LIGERA 15fps. Sin cámara y pantalla completa sigue siendo captura directa (0 CPU extra).
-- **Burbuja/vista previa**: se abre con su propio botón (gesto de usuario propio — Document PiP lo exige). Al cambiar cámara/forma/tamaño con la vista previa abierta, se reabre.
-- **Modo área**: única parte que re-encodea vía canvas (más CPU). Advertencia visible en la UI. Dimensiones del recorte forzadas a pares (requisito de algunos encoders).
-- **Botón nativo "Dejar de compartir"** de Chrome = stop (listener en `ended` del video track).
+- **Web y no escritorio**: Chrome ya está corriendo (no suma RAM) y MediaRecorder es más liviano que OBS.
+- **Codec y contenedor**: MP4 nativo con H.264/AAC (`avc1` + `mp4a`). Sin fallback WebM porque Chromium genera Matroska no interoperable.
+- **Compositor Canvas SIEMPRE**: todas las grabaciones pasan por canvas para garantizar anotaciones en el video, independientemente del modo o cámara.
+- **Dos modos de guardado**: memoria (revisión previa, hasta 30 min) y directo a disco (RAM plana, sin límite).
+- **Bitrate dinámico**: escala según píxeles de salida respecto a 720p, con tope de 4 Mbps.
+- **Countdown**: recorder arranca y se pausa durante 3-2-1, no se pierde contenido.
+- **Sin backend**: sitio estático puro, videos nunca tocan el servidor.
 
 ## Requisitos de navegador
 
-- Chrome/Edge ≥116 (Document PiP para la burbuja; el resto funciona desde versiones anteriores)
+- Chrome/Edge ≥116 (Document PiP; grabación funciona desde versiones anteriores)
 - HTTPS obligatorio (o `localhost` para desarrollo)
 
 ---
 
-## Roadmap (fuera de v1, por decisión del usuario)
+## Pruebas
 
-- Subida de videos al VPS con link para compartir con la comunidad
-- Conversión a MP4 server-side (ffmpeg en el VPS)
-- Edición/anotación post-grabación (posible puente con SnapEdit)
-- Multiusuario
+```bash
+npm test                    # 17 tests (15 smoke + 2 seguridad)
+npx playwright test tests/smoke.spec.ts -g "record 5s"
+```
+
+Cobertura: grabación + anotaciones en video, doble stop, ciclos consecutivos, guardado directo, cámara arrastrable, captura+editor, tabs, dashboard XSS, micrófono, opt-out/retention, persistencia, atajos de teclado, CSP, service worker.
 
 ---
 
 ## Cómo probar en local
 
 ```powershell
-cd C:\Users\GABRIEL\Desktop\screenshots\snaprec
-# cualquier servidor estático en localhost sirve (contexto seguro sin HTTPS):
-npx serve .   # o: python -m http.server 8080
+cd C:\Users\GABRIEL\Desktop\Proyecto KeySafe\snaprec
+npx serve .   # o: npm run dev
 # abrir http://localhost:8080 en Chrome
 ```
 
