@@ -2,3 +2,23 @@ node_modules/
 test-results/
 playwright-report/
 .commandcode/
+desktop.ini
+
+# Capturas, grabaciones e informes locales
+/*.webm
+/*.mp4
+/recursos.*.json
+/lighthouse-*.json
+/recordings/
+/captures/
+/Developer_*.jpeg
+/Female_*.jpeg
+
+# Credenciales y material criptografico local
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx

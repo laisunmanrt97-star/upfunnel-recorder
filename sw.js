@@ -1,11 +1,11 @@
-const CACHE = 'snaprec-v2'
+const CACHE = 'snaprec-v7'
 const ASSETS = [
-  '/',
-  '/index.html',
   '/style.css',
   '/manifest.json',
   '/assets/icon-192.svg',
   '/assets/icon-512.svg',
+  '/assets/upfunnel-logo-horizontal-blanco-transparente.png',
+  '/assets/chart.umd.min.js',
   '/js/tools.js',
   '/js/devices.js',
   '/js/bubble.js',
@@ -15,6 +15,7 @@ const ASSETS = [
   '/js/recorder.js',
   '/js/capture.js',
   '/js/app.js',
+  '/js/sw-register.js',
 ]
 
 function stripQuery (url) {
@@ -33,18 +34,24 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keys) =>
-      Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k)))
+      Promise.all(keys.filter((k) => k.startsWith('snaprec-') && k !== CACHE).map((k) => caches.delete(k)))
     )
   )
   self.clients.claim()
 })
 
 self.addEventListener('fetch', (e) => {
-  const path = stripQuery(e.request.url)
-  if (path.startsWith('https://cdn.')) {
-    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)))
+  if (e.request.method !== 'GET') return
+  const url = new URL(e.request.url)
+
+  // El documento siempre pasa por nginx para que Basic Auth pueda revocarse.
+  if (e.request.mode === 'navigate') {
+    e.respondWith(fetch(e.request))
     return
   }
+
+  if (url.origin !== self.location.origin) return
+  const path = stripQuery(e.request.url)
   e.respondWith(
     caches.match(path).then((r) => r || fetch(e.request))
   )

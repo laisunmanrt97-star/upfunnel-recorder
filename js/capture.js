@@ -3,6 +3,7 @@
 // Expone window.Capture
 
 const Capture = (() => {
+  const MAX_EDIT_PIXELS = 8_000_000
   const canvas = document.getElementById('edit-canvas')
   const ctx = canvas.getContext('2d', { willReadFrequently: true })
 
@@ -60,12 +61,15 @@ const Capture = (() => {
     }
 
     // Montar el frame (o el recorte) en el canvas del editor
-    canvas.width = region ? region.w : frame.width
-    canvas.height = region ? region.h : frame.height
+    const sourceWidth = region ? region.w : frame.width
+    const sourceHeight = region ? region.h : frame.height
+    const scale = Math.min(1, Math.sqrt(MAX_EDIT_PIXELS / (sourceWidth * sourceHeight)))
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale))
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale))
     if (region) {
-      ctx.drawImage(frame, region.x, region.y, region.w, region.h, 0, 0, region.w, region.h)
+      ctx.drawImage(frame, region.x, region.y, region.w, region.h, 0, 0, canvas.width, canvas.height)
     } else {
-      ctx.drawImage(frame, 0, 0)
+      ctx.drawImage(frame, 0, 0, canvas.width, canvas.height)
     }
     updateDims()
 

@@ -140,15 +140,23 @@ const Bubble = (() => {
 
   let studioCanvas = null
   let studioTools = null
+  let studioOverlay = null
 
-  async function openStudio (canvas, toolsElement) {
+  function restoreStudioElements () {
+    const wrap = document.getElementById('side-annotate-wrap')
+    const panel = document.getElementById('rec-sidepanel')
+    if (studioCanvas && wrap) wrap.appendChild(studioCanvas)
+    if (studioOverlay && wrap) wrap.appendChild(studioOverlay)
+    if (studioTools && panel) panel.appendChild(studioTools)
+    studioCanvas = null
+    studioOverlay = null
+    studioTools = null
+  }
+
+  async function openStudio (canvas, toolsElement, overlayElement, controls = {}) {
     studioCanvas = canvas
     studioTools = toolsElement
-
-    // Obtener stream de cámara si no lo tenemos
-    if (!camStream) {
-      try { camStream = await Devices.getCamStream() } catch {}
-    }
+    studioOverlay = overlayElement
 
     // Si ya hay un PiP abierto (cámara previa), lo reusamos
     if (!pipWindow) {
@@ -156,22 +164,18 @@ const Bubble = (() => {
     }
     // Reemplazar listener por si ya tenía uno viejo
     pipWindow.addEventListener('pagehide', () => {
-      if (studioCanvas && studioCanvas.parentElement) studioCanvas.remove()
-      const wrap = document.getElementById('side-annotate-wrap')
-      if (studioCanvas && wrap) wrap.appendChild(studioCanvas)
+      restoreStudioElements()
       pipWindow = null
-      studioCanvas = null
-      studioTools = null
     }, { once: true })
 
     const doc = pipWindow.document
     doc.title = 'SnapRec — Anotaciones'
-    doc.body.innerHTML = ''
+    doc.body.replaceChildren()
 
     // Cargar estilos de la app en el PiP (URL absoluta desde el root)
     const link = doc.createElement('link')
     link.rel = 'stylesheet'
-    link.href = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '') + '/style.css?v=122'
+    link.href = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '') + '/style.css?v=128'
     doc.head.appendChild(link)
 
     // Body: flex column, canvas arriba, tools abajo
@@ -179,39 +183,101 @@ const Bubble = (() => {
 
     // ── Contenedor del canvas (flex: 1) ──
     const canvasWrap = doc.createElement('div')
-    canvasWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;background:#000;'
+    canvasWrap.style.cssText = 'flex:1;position:relative;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center;min-height:0;'
+
+    const stage = doc.createElement('div')
+    stage.style.cssText = `position:relative;overflow:hidden;background:#000;aspect-ratio:${controls.width || canvas.width}/${controls.height || canvas.height};max-width:100%;max-height:100%;`
+
+    function fitStage () {
+      const availableW = canvasWrap.clientWidth
+      const availableH = canvasWrap.clientHeight
+      const ratio = (controls.width || canvas.width) / (controls.height || canvas.height)
+      if (!availableW || !availableH) return
+      if (availableW / availableH > ratio) {
+        stage.style.width = `${Math.round(availableH * ratio)}px`
+        stage.style.height = `${availableH}px`
+      } else {
+        stage.style.width = `${availableW}px`
+        stage.style.height = `${Math.round(availableW / ratio)}px`
+      }
+    }
+
+    if (controls.previewStream) {
+      const preview = doc.createElement('video')
+      preview.autoplay = true
+      preview.muted = true
+      preview.playsInline = true
+      preview.srcObject = controls.previewStream
+      preview.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;z-index:0;'
+      stage.appendChild(preview)
+    }
 
     // Mover el canvas de anotaciones + su overlay (Tools.attach) al PiP
     if (canvas) {
-      const oldParent = canvas.parentElement
-      // Recoger todos los hermanos que sean overlay (pointer-events:none)
-      const overlays = []
-      if (oldParent) {
-        for (const child of oldParent.children) {
-          if (child !== canvas && child.tagName === 'CANVAS' && child.style.pointerEvents === 'none') {
-            overlays.push(child)
-          }
+      canvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;display:block;cursor:crosshair;touch-action:none;z-index:1;'
+      stage.appendChild(canvas)
+      if (overlayElement) stage.appendChild(overlayElement)
+    }
+
+    if (canvas && controls.getCameraRect && controls.setCameraPosition) {
+      let draggingCamera = false
+      let offsetX = 0
+      let offsetY = 0
+
+      function toNative (event) {
+        const rect = canvas.getBoundingClientRect()
+        return {
+          x: (event.clientX - rect.left) * (canvas.width / rect.width),
+          y: (event.clientY - rect.top) * (canvas.height / rect.height)
         }
       }
-      if (oldParent) canvas.remove()
-      overlays.forEach(el => el.remove())
-      canvas.style.cssText = 'width:100%;height:100%;display:block;cursor:crosshair;touch-action:none;'
-      canvasWrap.appendChild(canvas)
-      overlays.forEach(el => canvasWrap.appendChild(el))
+
+      function isOverCamera (point) {
+        const rect = controls.getCameraRect()
+        return rect && point.x >= rect.x && point.x <= rect.x + rect.w && point.y >= rect.y && point.y <= rect.y + rect.h
+      }
+
+      canvas.addEventListener('pointerdown', (event) => {
+        if (event.button !== 0) return
+        const point = toNative(event)
+        const rect = controls.getCameraRect()
+        if (!rect || !isOverCamera(point)) return
+        draggingCamera = true
+        offsetX = point.x - rect.x
+        offsetY = point.y - rect.y
+        canvas.setPointerCapture(event.pointerId)
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }, true)
+
+      canvas.addEventListener('pointermove', (event) => {
+        const point = toNative(event)
+        canvas.style.cursor = draggingCamera || isOverCamera(point) ? 'move' : 'crosshair'
+        if (!draggingCamera) return
+        controls.setCameraPosition(point.x - offsetX, point.y - offsetY)
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }, true)
+
+      const finishCameraDrag = (event) => {
+        if (!draggingCamera) return
+        draggingCamera = false
+        event.preventDefault()
+        event.stopImmediatePropagation()
+      }
+      canvas.addEventListener('pointerup', finishCameraDrag, true)
+      canvas.addEventListener('pointercancel', finishCameraDrag, true)
     }
 
-    // Miniatura de cámara (esquina superior derecha)
-    if (camStream) {
-      const camVid = doc.createElement('video')
-      camVid.autoplay = true
-      camVid.muted = true
-      camVid.playsInline = true
-      camVid.srcObject = camStream
-      camVid.style.cssText = 'position:absolute;top:8px;right:8px;width:100px;height:75px;border-radius:50%;border:2px solid #00E5FF;object-fit:cover;transform:scaleX(-1);z-index:10;background:#000;'
-      canvasWrap.appendChild(camVid)
-    }
-
+    canvasWrap.appendChild(stage)
     doc.body.appendChild(canvasWrap)
+
+    const hint = doc.createElement('div')
+    hint.textContent = 'Dibuja sobre la vista. Arrastra la cámara dentro del video para moverla.'
+    hint.style.cssText = 'padding:6px 10px;color:#94A3B8;font-size:11px;text-align:center;border-top:1px solid rgba(148,163,184,.2);'
+    doc.body.appendChild(hint)
+    doc.defaultView.addEventListener('resize', fitStage)
+    doc.defaultView.requestAnimationFrame(fitStage)
 
     // ── Toolbar de anotaciones ──
     if (toolsElement) {
@@ -221,9 +287,10 @@ const Bubble = (() => {
   }
 
   function closeStudio () {
-    if (pipWindow) { pipWindow.close(); pipWindow = null }
-    studioCanvas = null
-    studioTools = null
+    const win = pipWindow
+    restoreStudioElements()
+    pipWindow = null
+    if (win) win.close()
     // No detenemos camStream porque puede estar siendo usado por la grabación
   }
 

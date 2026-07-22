@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "npx serve . -l 8080",
     "test": "playwright test",
+    "test:security": "playwright test --project=security-hardened",
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug"
   },

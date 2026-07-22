@@ -2,8 +2,6 @@
    Paleta oficial: Jet Black #080C14 · Cyan Blue #00E5FF · Pure White #FFFFFF · Slate Mist #94A3B8
    Tipografía única: Inter. Estética: futuristic minimalism, flat con profundidad sutil (glow cian). */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;800&display=swap');
-
 :root {
   --uf-bg:     #080C14;                      /* Jet Black — fondo dominante */
   --uf-accent: #00E5FF;                      /* Cyan Blue — CTAs, highlights, glow */
@@ -13,7 +11,7 @@
   --uf-border:  rgba(148, 163, 184, 0.25);   /* borde sutil oficial */
   --uf-accent-soft: rgba(0, 229, 255, 0.08);
   --uf-glow: 0 0 24px rgba(0, 229, 255, 0.35);
-  --uf-font: 'Inter', 'Segoe UI', sans-serif;
+  --uf-font: 'Segoe UI', Arial, sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -82,6 +80,32 @@ body {
 
 /* ── Botones ── */
 .btn-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.spaced-row { margin-top: 8px; }
+.status-spacer { margin-left: auto; }
+.panel-flush { padding: 0; overflow: hidden; }
+.table-scroll { overflow-x: auto; }
+
+.check-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--uf-text);
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.check-option input { accent-color: var(--uf-accent); }
+.privacy-panel { display: grid; gap: 12px; }
+.privacy-panel h2, .privacy-panel .check-option, .privacy-panel .muted { margin-bottom: 0; margin-top: 0; }
+.privacy-field { display: grid; gap: 6px; color: var(--uf-muted); font-size: 12px; }
+.privacy-field select { max-width: 220px; }
+.row-delete { padding: 5px 9px; font-size: 11px; }
+.disabled-options { opacity: 0.35; }
+.ink-swatch[data-ink-index="0"] { background: #FF4444; }
+.ink-swatch[data-ink-index="1"] { background: #FFE000; }
+.ink-swatch[data-ink-index="2"] { background: #00AAFF; }
+.ink-swatch[data-ink-index="3"] { background: #00E5FF; }
+.ink-swatch[data-ink-index="4"] { background: #FFFFFF; }
+.ink-swatch[data-ink-index="5"] { background: #000000; }
 
 .opt-btn {
   background: none;
@@ -152,6 +176,8 @@ select {
   box-shadow: 0 0 8px rgba(0, 229, 255, 0.6);
   transition: width 0.06s linear;
 }
+.mic-test-btn { margin-top: 10px; }
+.dash-empty { text-align: center; padding: 24px; }
 
 /* ── Pestañas principales ── */
 .tab-btn {

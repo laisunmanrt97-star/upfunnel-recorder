@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; manifest-src 'self'; trusted-types snaprec-worker; require-trusted-types-for 'script'">
   <title>SnapRec</title>
-  <link rel="stylesheet" href="style.css?v=123">
+  <link rel="stylesheet" href="style.css?v=128">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#080C14">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -59,10 +60,11 @@
       <section class="panel">
         <h2>[ MICRÓFONO ]</h2>
         <select id="mic-select" aria-label="Seleccionar micrófono"></select>
+        <button id="btn-mic-test" class="opt-btn mic-test-btn" aria-pressed="false">PROBAR MICRÓFONO</button>
         <div id="vu-wrap" aria-hidden="true">
           <div id="vu-bar"></div>
         </div>
-        <p class="muted">Habla — la barra debe moverse si tu micrófono funciona.</p>
+        <p class="muted">El micrófono solo se activa al probarlo o al iniciar una grabación.</p>
       </section>
 
       <section class="panel">
@@ -72,7 +74,7 @@
           <button class="opt-btn cam-mode active" data-cammode="embed" aria-label="Incrustar cámara en el video">EN EL VIDEO</button>
           <button class="opt-btn cam-mode" data-cammode="off" aria-label="Grabar sin cámara">SIN CÁMARA</button>
         </div>
-        <div class="btn-row" id="cam-embed-opts" style="margin-top:8px">
+        <div class="btn-row spaced-row" id="cam-embed-opts">
           <button class="opt-btn bubble-opt active" data-shape="circle" aria-label="Forma circular">○</button>
           <button class="opt-btn bubble-opt" data-shape="rect" aria-label="Forma rectangular">□</button>
           <button class="opt-btn bubble-size" data-size="s" aria-label="Tamaño pequeño">S</button>
@@ -83,16 +85,20 @@
           <button class="opt-btn cam-corner" data-corner="bl" aria-label="Esquina inferior izquierda">↙</button>
           <button class="opt-btn cam-corner active" data-corner="br" aria-label="Esquina inferior derecha">↘</button>
         </div>
-        <div class="btn-row" style="margin-top:8px">
+        <div class="btn-row spaced-row">
           <button id="btn-bubble" class="opt-btn" aria-label="Abrir o cerrar vista previa de la cámara">VISTA PREVIA: OFF</button>
         </div>
-        <p class="muted">Tu cámara se dibuja limpia dentro del video (solo el círculo, sin marcos ni controles), en la esquina que elijas. La vista previa flotante (PiP) se abre automáticamente al grabar — se ve encima de cualquier ventana para que sepas si estorbás en la toma.</p>
+        <p class="muted">Tu cámara se dibuja limpia dentro del video. Elegí una esquina inicial y, durante la grabación, arrastrala dentro del estudio flotante para colocarla libremente. Mover la ventana del estudio solo mueve el panel de control.</p>
       </section>
 
       <section class="panel">
+        <label class="check-option" for="save-direct">
+          <input id="save-direct" type="checkbox">
+          Guardar directamente en el disco
+        </label>
         <button id="btn-record" class="big-btn" aria-label="Iniciar grabación">● GRABAR</button>
-        <p class="muted">Al iniciar: Chrome te pide qué pantalla compartir → cuenta regresiva de 3 segundos. Al terminar, revisas el video y decides si lo descargas — si no lo descargas, no se guarda.</p>
-        <p class="muted">💡 Para <strong>señalar en vivo</strong> mientras grabas, comparte una <strong>ventana</strong> (no la pantalla completa): así puedes volver a esta pestaña a dibujar flechas sin que se grabe SnapRec.</p>
+        <p class="muted">El guardado directo evita acumular el video en memoria. Si está desactivado, las grabaciones se detienen a los 30 minutos.</p>
+        <p class="muted">💡 El estudio flotante muestra la composición que queda en el MP4. Las marcas se ven en el video grabado, pero una página web no puede dibujar directamente encima de otra aplicación.</p>
       </section>
 
     </div>
@@ -111,13 +117,32 @@
       <section class="panel">
         <button id="btn-capture" class="big-btn" aria-label="Tomar captura">📸 CAPTURAR</button>
         <p class="muted">Chrome te pide qué compartir (pantalla o ventana) → cuenta regresiva de 3 segundos para que cambies a la app que quieres capturar → suena un aviso y vuelves aquí a editar.</p>
-        <p class="muted">La pantalla compartida queda activa: las siguientes capturas son instantáneas, sin volver a preguntar.</p>
+        <p class="muted">La pantalla compartida permanece activa mientras editas y se detiene al cerrar el editor.</p>
       </section>
 
     </div>
 
     <!-- ── Panel ESTADÍSTICAS ── -->
     <div id="setup-dashboard" hidden>
+
+      <section class="panel privacy-panel">
+        <h2>[ PRIVACIDAD LOCAL ]</h2>
+        <label class="check-option" for="dash-stats-enabled">
+          <input id="dash-stats-enabled" type="checkbox">
+          Guardar estadísticas de futuras grabaciones
+        </label>
+        <label class="privacy-field" for="dash-retention">
+          Conservar metadatos
+          <select id="dash-retention">
+            <option value="30">30 días</option>
+            <option value="90">90 días</option>
+            <option value="365">1 año</option>
+            <option value="forever">Para siempre</option>
+          </select>
+        </label>
+        <button id="dash-clear-all" class="opt-btn danger">BORRAR TODO EL HISTORIAL</button>
+        <p class="muted">Solo se almacenan metadatos en este navegador, nunca los videos. Desactivar las estadísticas no elimina el historial existente.</p>
+      </section>
 
       <div class="dash-filters">
         <button class="opt-btn dash-filter-btn active" data-period="day">Hoy</button>
@@ -156,8 +181,8 @@
 
       <div id="dash-period-cards" class="dash-period-cards"></div>
 
-      <div class="panel" style="padding:0;overflow:hidden">
-        <div style="overflow-x:auto">
+      <div class="panel panel-flush">
+        <div class="table-scroll">
           <table class="dash-table">
             <thead>
               <tr>
@@ -168,10 +193,11 @@
                 <th>Resolución</th>
                 <th>Calidad</th>
                 <th>Cámara</th>
+                <th>Acciones</th>
               </tr>
             </thead>
             <tbody id="dash-table-body">
-              <tr><td colspan="7" class="muted" style="text-align:center;padding:24px">Cargando…</td></tr>
+              <tr><td colspan="8" class="muted dash-empty">Cargando…</td></tr>
             </tbody>
           </table>
         </div>
@@ -207,10 +233,6 @@
     <div id="rec-body">
       <div id="studio-wrap">
         <video id="rec-preview" autoplay muted playsinline></video>
-        <div id="cam-preview" class="cam-preview" hidden>
-          <video id="cam-preview-video" autoplay muted playsinline></video>
-          <span class="cam-preview-label">TÚ</span>
-        </div>
       </div>
 
       <aside id="rec-sidepanel" class="side-panel">
@@ -243,7 +265,7 @@
       <span id="met-size">0 MB</span>
     </div>
 
-    <p class="muted center">Dibujá en el panel lateral y lo que marques se graba en el video al instante. ⚠ Si minimizás la pestaña, la composición puede ralentizarse — mantenela visible para mejor calidad.</p>
+    <p class="muted center">El estudio muestra el video que se está grabando. Dibujá sobre esa vista y arrastrá la cámara dentro del video para moverla. El panel no modifica visualmente otras aplicaciones; las marcas quedan en el MP4 final. ⚠ Si minimizás la pestaña, la composición puede ralentizarse.</p>
   </main>
 
   <!-- ══ VISTA: EDITOR DE CAPTURA ══════════════════════════════════ -->
@@ -307,23 +329,19 @@
   <div id="statusbar">
     <div class="status-item">MIC: <span id="st-mic">—</span></div>
     <div class="status-item">CÁMARA: <span id="st-cam">—</span></div>
-    <div class="status-item" style="margin-left:auto">SNAPREC v1.3.0</div>
+    <div class="status-item status-spacer">SNAPREC v1.3.0</div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
-  <script src="js/tools.js?v=123"></script>
-  <script src="js/devices.js?v=123"></script>
-  <script src="js/bubble.js?v=123"></script>
-  <script src="js/stats.js?v=123"></script>
-  <script src="js/dashboard.js?v=123"></script>
-  <script src="js/crop.js?v=123"></script>
-  <script src="js/recorder.js?v=123"></script>
-  <script src="js/capture.js?v=123"></script>
-  <script src="js/app.js?v=123"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
-    }
-  </script>
+  <script src="assets/chart.umd.min.js?v=4.4.7"></script>
+  <script src="js/tools.js?v=128"></script>
+  <script src="js/devices.js?v=128"></script>
+  <script src="js/bubble.js?v=128"></script>
+  <script src="js/stats.js?v=128"></script>
+  <script src="js/dashboard.js?v=128"></script>
+  <script src="js/crop.js?v=128"></script>
+  <script src="js/recorder.js?v=128"></script>
+  <script src="js/capture.js?v=128"></script>
+  <script src="js/app.js?v=128"></script>
+  <script src="js/sw-register.js?v=128"></script>
 </body>
 </html>

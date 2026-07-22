@@ -3,6 +3,8 @@
 
 const Dashboard = (() => {
   let chartInstance = null
+  let initialized = false
+  let activePeriod = 'month'
 
   // ── Helpers de fechas ──────────────────────────────────────────────────
 
@@ -50,6 +52,8 @@ const Dashboard = (() => {
   // ── Montar dashboard ────────────────────────────────────────────────────
 
   async function mount (periodKey = 'month') {
+    activePeriod = periodKey
+    await Stats.pruneExpired()
     const period = periodPreset(periodKey)
     const [list, summ, dayData] = await Promise.all([
       Stats.latest(20),
@@ -60,7 +64,8 @@ const Dashboard = (() => {
     renderKPIs(summ, period?.label || 'Todo')
     renderTable(list)
     renderChart(dayData, period?.label || 'Todo')
-    renderAllTimeCards()
+    await renderAllTimeCards()
+    renderPreferences()
     highlightFilter(periodKey)
   }
 
@@ -78,22 +83,45 @@ const Dashboard = (() => {
 
   function renderTable (list) {
     const tbody = document.getElementById('dash-table-body')
+    tbody.replaceChildren()
     if (!list.length) {
-      tbody.innerHTML = '<tr><td colspan="6" class="muted" style="text-align:center;padding:24px">Todavía no hay grabaciones.</td></tr>'
+      const row = tbody.insertRow()
+      const cell = row.insertCell()
+      cell.colSpan = 8
+      cell.className = 'muted dash-empty'
+      cell.textContent = 'Todavía no hay grabaciones.'
       return
     }
-    tbody.innerHTML = list.map(r => {
-      const label = r.title && r.title !== r.name ? r.title : r.name
-      return `<tr>
-        <td>${fmtDate(r.timestamp)} ${fmtTime(r.timestamp)}</td>
-        <td title="${label}">${label.length > 30 ? label.slice(0, 30) + '…' : label}</td>
-        <td>${fmtDuration(r.duration)}</td>
-        <td>${fmtSize(r.size)}</td>
-        <td>${r.width}×${r.height}</td>
-        <td>${r.quality || '—'}</td>
-        <td>${r.camera === 'embed' ? '📷' : '—'}</td>
-      </tr>`
-    }).join('')
+    for (const r of list) {
+      const label = String(r.title && r.title !== r.name ? r.title : (r.name || ''))
+      const values = [
+        `${fmtDate(r.timestamp)} ${fmtTime(r.timestamp)}`,
+        label.length > 30 ? label.slice(0, 30) + '…' : label,
+        fmtDuration(r.duration),
+        fmtSize(r.size),
+        `${Number(r.width) || 0}×${Number(r.height) || 0}`,
+        String(r.quality || '—'),
+        r.camera === 'embed' ? '📷' : '—'
+      ]
+      const row = tbody.insertRow()
+      values.forEach((value, index) => {
+        const cell = row.insertCell()
+        cell.textContent = value
+        if (index === 1) cell.title = label
+      })
+      const actions = row.insertCell()
+      const removeButton = document.createElement('button')
+      removeButton.className = 'opt-btn danger row-delete'
+      removeButton.textContent = 'BORRAR'
+      removeButton.setAttribute('aria-label', `Borrar ${label || 'grabación'}`)
+      removeButton.addEventListener('click', async () => {
+        if (!confirm('¿Borrar estos metadatos del historial local?')) return
+        removeButton.disabled = true
+        await Stats.remove(r.id)
+        await mount(activePeriod)
+      })
+      actions.appendChild(removeButton)
+    }
   }
 
   // ── Gráfica de barras (grabaciones por día) ─────────────────────────────
@@ -108,7 +136,7 @@ const Dashboard = (() => {
     if (!days.length) {
       ctx.clearRect(0, 0, canvas.width, canvas.height)
       ctx.fillStyle = '#94A3B8'
-      ctx.font = '14px Inter, sans-serif'
+      ctx.font = '14px Segoe UI, sans-serif'
       ctx.textAlign = 'center'
       ctx.fillText('Sin datos en este período', canvas.width / 2, canvas.height / 2)
       return
@@ -148,7 +176,7 @@ const Dashboard = (() => {
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: {
-            labels: { color: '#94A3B8', font: { family: 'Inter' } }
+            labels: { color: '#94A3B8', font: { family: 'Segoe UI' } }
           },
           tooltip: {
             backgroundColor: '#080C14',
@@ -166,18 +194,18 @@ const Dashboard = (() => {
         },
         scales: {
           x: {
-            ticks: { color: '#94A3B8', font: { size: 10, family: 'Inter' } },
+            ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' } },
             grid: { color: 'rgba(148,163,184,0.1)' }
           },
           y: {
             beginAtZero: true,
-            ticks: { color: '#94A3B8', font: { size: 10, family: 'Inter' }, stepSize: 1 },
+            ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' }, stepSize: 1 },
             grid: { color: 'rgba(148,163,184,0.1)' }
           },
           y1: {
             beginAtZero: true,
             position: 'right',
-            ticks: { color: '#94A3B8', font: { size: 10, family: 'Inter' } },
+            ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' } },
             grid: { display: false }
           }
         }
@@ -188,7 +216,6 @@ const Dashboard = (() => {
   // ── Cards de "todos los tiempos" ───────────────────────────────────────
 
   async function renderAllTimeCards () {
-    const all = await Stats.getAll()
     const now = Date.now()
     const day = 86_400_000
 
@@ -200,16 +227,32 @@ const Dashboard = (() => {
     ]
 
     const container = document.getElementById('dash-period-cards')
-    const cards = await Promise.all(periods.map(async (p) => {
+    const summaries = await Promise.all(periods.map(async (p) => {
       const data = await Stats.summary(p.since ? p : null)
-      return `
-        <div class="stat-card">
-          <span class="stat-card-label">${p.label}</span>
-          <span class="stat-card-value">${data.total}</span>
-          <span class="stat-card-sub">${fmtDuration(data.totalDuration)} · ${fmtSize(data.totalSize)}</span>
-        </div>`
+      return { period: p, data }
     }))
-    container.innerHTML = cards.join('')
+    container.replaceChildren()
+    for (const { period, data } of summaries) {
+      const card = document.createElement('div')
+      card.className = 'stat-card'
+      const label = document.createElement('span')
+      label.className = 'stat-card-label'
+      label.textContent = period.label
+      const value = document.createElement('span')
+      value.className = 'stat-card-value'
+      value.textContent = data.total
+      const detail = document.createElement('span')
+      detail.className = 'stat-card-sub'
+      detail.textContent = `${fmtDuration(data.totalDuration)} · ${fmtSize(data.totalSize)}`
+      card.append(label, value, detail)
+      container.appendChild(card)
+    }
+  }
+
+  function renderPreferences () {
+    const preferences = Stats.getPreferences()
+    document.getElementById('dash-stats-enabled').checked = preferences.enabled
+    document.getElementById('dash-retention').value = preferences.retention
   }
 
   // ── Resaltar filtro activo ─────────────────────────────────────────────
@@ -223,13 +266,26 @@ const Dashboard = (() => {
   // ── Init ────────────────────────────────────────────────────────────────
 
   function init () {
-    // Wire filters
-    document.querySelectorAll('.dash-filter-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        mount(btn.dataset.period)
+    if (!initialized) {
+      initialized = true
+      document.querySelectorAll('.dash-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => mount(btn.dataset.period).catch(console.error))
       })
-    })
-    mount('month')
+      document.getElementById('dash-stats-enabled').addEventListener('change', (event) => {
+        Stats.setEnabled(event.target.checked)
+        renderPreferences()
+      })
+      document.getElementById('dash-retention').addEventListener('change', async (event) => {
+        await Stats.setRetention(event.target.value)
+        await mount(activePeriod)
+      })
+      document.getElementById('dash-clear-all').addEventListener('click', async () => {
+        if (!confirm('¿Borrar todo el historial local? Esta acción no se puede deshacer.')) return
+        await Stats.clear()
+        await mount(activePeriod)
+      })
+    }
+    mount(activePeriod).catch(console.error)
   }
 
   return { init, mount }

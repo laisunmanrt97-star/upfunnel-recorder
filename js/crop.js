@@ -92,13 +92,44 @@ const Crop = (() => {
       annotationCanvas.height = outH
     }
 
-    function drawCam () {
+    const initialPosition = camera?.position && Number.isFinite(camera.position.x) && Number.isFinite(camera.position.y)
+      ? { x: Math.min(1, Math.max(0, camera.position.x)), y: Math.min(1, Math.max(0, camera.position.y)) }
+      : {
+          x: camera?.corner?.includes('l') ? 0 : 1,
+          y: camera?.corner?.includes('t') ? 0 : 1
+        }
+    let cameraPosition = initialPosition
+
+    function getCameraRect () {
+      if (!camVideo || !camera) return null
       const base = Math.round(Math.min(outW, outH) * (CAM_SIZES[camera.size] || CAM_SIZES.m))
       const isCircle = camera.shape !== 'rect'
       const w = isCircle ? base : Math.round(base * 1.33)
       const h = base
-      const x = camera.corner.includes('l') ? CAM_MARGIN : outW - w - CAM_MARGIN
-      const y = camera.corner.includes('t') ? CAM_MARGIN : outH - h - CAM_MARGIN
+      const availableX = Math.max(0, outW - w - CAM_MARGIN * 2)
+      const availableY = Math.max(0, outH - h - CAM_MARGIN * 2)
+      const x = Math.round(CAM_MARGIN + cameraPosition.x * availableX)
+      const y = Math.round(CAM_MARGIN + cameraPosition.y * availableY)
+      return { x, y, w, h, outW, outH }
+    }
+
+    function setCameraPosition (x, y) {
+      const rect = getCameraRect()
+      if (!rect) return
+      const availableX = Math.max(1, outW - rect.w - CAM_MARGIN * 2)
+      const availableY = Math.max(1, outH - rect.h - CAM_MARGIN * 2)
+      cameraPosition = {
+        x: Math.min(1, Math.max(0, (x - CAM_MARGIN) / availableX)),
+        y: Math.min(1, Math.max(0, (y - CAM_MARGIN) / availableY))
+      }
+      if (camera.onPositionChange) camera.onPositionChange({ ...cameraPosition })
+    }
+
+    function drawCam () {
+      const rect = getCameraRect()
+      if (!rect) return
+      const { x, y, w, h } = rect
+      const isCircle = camera.shape !== 'rect'
 
       // Recorte "cover" del frame de la cámara al aspecto destino
       const cw = camVideo.videoWidth, ch = camVideo.videoHeight
@@ -128,8 +159,6 @@ const Crop = (() => {
     }
 
     let annotationsEnabled = true
-    let hasAnnotations = false
-    let checkedAnnotations = false
     let cameraOnly = false
 
     function drawCameraFullscreen () {
@@ -148,12 +177,7 @@ const Crop = (() => {
       if (cameraOnly) {
         drawCameraFullscreen()
         if (annotationCanvas && annotationsEnabled) {
-          if (!checkedAnnotations) {
-            const px = annotationCanvas.getContext('2d').getImageData(0, 0, 1, 1).data
-            hasAnnotations = px[3] !== 0
-            checkedAnnotations = true
-          }
-          if (hasAnnotations) ctx.drawImage(annotationCanvas, 0, 0)
+          ctx.drawImage(annotationCanvas, 0, 0)
         }
         return
       }
@@ -163,12 +187,7 @@ const Crop = (() => {
         ctx.drawImage(srcVideo, 0, 0, outW, outH)
       }
       if (annotationCanvas && annotationsEnabled) {
-        if (!checkedAnnotations) {
-          const px = annotationCanvas.getContext('2d').getImageData(0, 0, 1, 1).data
-          hasAnnotations = px[3] !== 0
-          checkedAnnotations = true
-        }
-        if (hasAnnotations) ctx.drawImage(annotationCanvas, 0, 0)
+        ctx.drawImage(annotationCanvas, 0, 0)
       }
       if (camVideo) drawCam()
     }
@@ -211,6 +230,8 @@ const Crop = (() => {
       height: outH,
       setAnnotationsEnabled: (v) => { annotationsEnabled = v },
       setCameraOnly: (v) => { cameraOnly = v },
+      getCameraRect,
+      setCameraPosition,
       stop: () => {
         if (vfcId !== null && typeof srcVideo.cancelVideoFrameCallback === 'function') {
           srcVideo.cancelVideoFrameCallback(vfcId)

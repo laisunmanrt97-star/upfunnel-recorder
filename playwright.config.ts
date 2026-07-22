@@ -15,7 +15,8 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      testMatch: /smoke\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
       launchOptions: {
         args: [
           '--use-fake-ui-for-media-stream',
@@ -25,6 +26,11 @@ export default defineConfig({
           '--disable-features=IsolateOrigins,site-per-process',
         ],
       },
+    },
+    {
+      name: 'security-hardened',
+      testMatch: /security\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], serviceWorkers: 'allow' },
     },
   ],
   webServer: {

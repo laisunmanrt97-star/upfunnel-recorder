@@ -1,9 +1,10 @@
 // SnapRec — captura de pantalla + mezcla de audio + MediaRecorder
-// Guardado en streaming a disco (File System Access API) para no acumular RAM;
-// fallback a Blob en memoria si el navegador no lo soporta.
+// Grabacion normal en memoria, con soporte opcional para streaming a disco.
 // Expone window.Recorder
 
 const Recorder = (() => {
+  const MAX_MEMORY_DURATION_MS = 30 * 60 * 1000
+  const MAX_VIDEO_BITS_PER_SECOND = 4_000_000
   const PRESETS = {
     native24: { frameRate: 24, videoBitsPerSecond: 2_500_000, height: null },
     light15:  { frameRate: 15, videoBitsPerSecond: 1_200_000, height: null },
@@ -29,30 +30,31 @@ const Recorder = (() => {
 
   let onStopCallback = null
   let sessionTitle = ''
+  let sessionMimeType = ''
+  let finalizing = false
+  let stopRequested = false
 
   function setTitle (t) { sessionTitle = t.trim() }
   function getTitle () { return sessionTitle }
 
   function pickMimeType () {
     const candidates = [
-      'video/mp4;codecs=h264,aac',       // MP4 nativo (Chrome 97+) — ideal
-      'video/mp4',                         // MP4 genérico
-      'video/webm;codecs=h264,opus',       // WebM con H.264 (fallback)
-      'video/webm;codecs=vp8,opus',        // fallback VP8
-      'video/webm'
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4;codecs=avc1.42001E,mp4a.40.2',
+      'video/mp4'
     ]
-    return candidates.find(c => MediaRecorder.isTypeSupported(c)) || ''
+    const mime = candidates.find(c => MediaRecorder.isTypeSupported(c))
+    if (!mime) {
+      throw new DOMException('Este navegador no ofrece grabacion MP4 con H.264/AAC.', 'NotSupportedError')
+    }
+    return mime
   }
 
-  function mimeExt (mime) {
-    return mime.startsWith('video/mp4') ? '.mp4' : '.webm'
-  }
-
-  function suggestedName () {
+  function suggestedName (mime = sessionMimeType || pickMimeType()) {
     const d = new Date()
     const pad = n => String(n).padStart(2, '0')
     const ts = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`
-    const ext = mimeExt(pickMimeType())
+    const ext = '.mp4'
     if (sessionTitle) {
       const safe = sessionTitle.replace(/[^a-zA-Z0-9áéíóúñ\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 60)
       return `snaprec-${safe}-${ts}${ext}`
@@ -65,11 +67,12 @@ const Recorder = (() => {
   async function pickSaveTarget () {
     fileHandle = null
     if (!window.showSaveFilePicker) return 'memory'
-    const ext = mimeExt(pickMimeType())
+    const mime = pickMimeType()
+    const ext = '.mp4'
     try {
       fileHandle = await window.showSaveFilePicker({
-        suggestedName: suggestedName(),
-        types: [{ description: `Video ${ext.slice(1).toUpperCase()}`, accept: { [`video/${ext.slice(1)}`]: [ext] } }]
+        suggestedName: suggestedName(mime),
+        types: [{ description: 'Video MP4', accept: { 'video/mp4': [ext] } }]
       })
       return 'disk'
     } catch (err) {
@@ -83,6 +86,8 @@ const Recorder = (() => {
   // mode: 'full' | 'area'   quality: clave de PRESETS
   // camera: null | { shape, size, corner } → se incrusta limpia en el video
   async function start ({ mode, quality, camera, onStop }) {
+    finalizing = false
+    stopRequested = false
     onStopCallback = onStop
     const preset = PRESETS[quality] || PRESETS.native24
 
@@ -119,7 +124,11 @@ const Recorder = (() => {
     let region = null
     if (mode === 'area') {
       region = await Crop.selectArea(displayStream)
-      if (!region) { cleanupStreams(); return false }  // canceló con ESC
+      if (!region) {
+        cleanupStreams()
+        onStopCallback = null
+        return false
+      }
     }
 
     // Cámara incrustada (círculo/rectángulo limpio dibujado dentro del video)
@@ -127,52 +136,65 @@ const Recorder = (() => {
       try { camStream = await Devices.getCamStream() }
       catch (err) { console.warn('[SnapRec] Sin cámara, se graba sin ella:', err.name); camStream = null }
     }
-
-    // Bypass de canvas cuando no hay recorte, cámara ni anotaciones —
-    // el track nativo de getDisplayMedia va directo al encoder, 0 CPU extra.
-    const needsCanvas = !!(region || camera)
-    const targetHeight = preset.height || undefined
-
-    let videoTrackStream
-    if (needsCanvas) {
-      const piped = await Crop.createPipeline({
-        displayStream, region, camStream, camera, withAnnotations: true, fps: preset.frameRate, targetHeight
-      })
-      videoTrackStream = piped.stream
-      cropStop = piped.stop
-      studio = {
-        stream: piped.stream,
-        annotationCanvas: piped.annotationCanvas,
-        width: piped.width,
-        height: piped.height,
-        setAnnotationsEnabled: piped.setAnnotationsEnabled,
-        setCameraOnly: piped.setCameraOnly
-      }
-    } else {
-      const rawTrack = displayStream.getVideoTracks()[0]
-      videoTrackStream = new MediaStream([rawTrack])
-      cropStop = () => {}
-      const s = rawTrack.getSettings() || {}
-      studio = {
-        stream: videoTrackStream,
-        annotationCanvas: null,
-        width: s.width || 0,
-        height: s.height || 0
-      }
+    if (stopRequested) {
+      cleanupStreams()
+      onStopCallback = null
+      return false
     }
 
-    // ── Mezcla de audio: mic (siempre) + audio del sistema (si existe) ──
-    micStream = await Devices.getMicStream()
-    mixCtx = new AudioContext()
-    const dest = mixCtx.createMediaStreamDestination()
-    mixCtx.createMediaStreamSource(micStream).connect(dest)
-    if (displayStream.getAudioTracks().length > 0) {
-      mixCtx.createMediaStreamSource(new MediaStream(displayStream.getAudioTracks())).connect(dest)
+    const targetHeight = preset.height || undefined
+
+    // Todas las grabaciones pasan por el compositor para que las anotaciones
+    // esten disponibles independientemente del modo o del uso de camara.
+    const piped = await Crop.createPipeline({
+      displayStream, region, camStream, camera, withAnnotations: true, fps: preset.frameRate, targetHeight
+    })
+    const videoTrackStream = piped.stream
+    cropStop = piped.stop
+    studio = {
+      stream: piped.stream,
+      annotationCanvas: piped.annotationCanvas,
+      width: piped.width,
+      height: piped.height,
+      setAnnotationsEnabled: piped.setAnnotationsEnabled,
+      setCameraOnly: piped.setCameraOnly,
+      getCameraRect: piped.getCameraRect,
+      setCameraPosition: piped.setCameraPosition
+    }
+    if (stopRequested) {
+      cleanupStreams()
+      onStopCallback = null
+      return false
+    }
+
+    // ── Mezcla de audio: mic opcional + audio del sistema (si existe) ──
+    try {
+      micStream = await Devices.getMicStream()
+    } catch (err) {
+      console.warn('[SnapRec] Sin microfono, se graba sin el:', err.name)
+      micStream = null
+    }
+
+    let mixedAudioTracks = []
+    const systemAudioTracks = displayStream.getAudioTracks()
+    if (micStream || systemAudioTracks.length > 0) {
+      mixCtx = new AudioContext()
+      const dest = mixCtx.createMediaStreamDestination()
+      if (micStream) mixCtx.createMediaStreamSource(micStream).connect(dest)
+      if (systemAudioTracks.length > 0) {
+        mixCtx.createMediaStreamSource(new MediaStream(systemAudioTracks)).connect(dest)
+      }
+      mixedAudioTracks = dest.stream.getAudioTracks()
+    }
+    if (stopRequested) {
+      cleanupStreams()
+      onStopCallback = null
+      return false
     }
 
     const recStream = new MediaStream([
       videoTrackStream.getVideoTracks()[0],
-      ...dest.stream.getAudioTracks()
+      ...mixedAudioTracks
     ])
 
     // ── Destino de guardado ──
@@ -189,9 +211,10 @@ const Recorder = (() => {
     const refPixels = 1280 * 720
     const outPixels = (studio.width || 1) * (studio.height || 1)
     const scale = Math.max(0.5, outPixels / refPixels)
-    const dynamicVideoBits = Math.round(preset.videoBitsPerSecond * scale)
+    const dynamicVideoBits = Math.min(MAX_VIDEO_BITS_PER_SECOND, Math.round(preset.videoBitsPerSecond * scale))
 
     const mimeType = pickMimeType()
+    sessionMimeType = mimeType
     mediaRecorder = new MediaRecorder(recStream, {
       mimeType,
       videoBitsPerSecond: dynamicVideoBits,
@@ -211,7 +234,10 @@ const Recorder = (() => {
 
     mediaRecorder.onstop = finalize
 
-    mediaRecorder.start(1000)   // un chunk por segundo → RAM plana si se escribe a disco
+    // En memoria, dejar que Chromium cierre un MP4 autocontenido al detener.
+    // Los fragmentos periodicos solo son necesarios para escritura directa.
+    if (writable) mediaRecorder.start(1000)
+    else mediaRecorder.start()
     startTimer()
     return true
   }
@@ -227,6 +253,10 @@ const Recorder = (() => {
         elapsedMs += now - lastTick
         lastTick = now
         updateTimerDisplay()
+        if (!writable && elapsedMs >= MAX_MEMORY_DURATION_MS) {
+          alert('La grabación alcanzó el límite de 30 minutos en memoria y se detendrá para proteger el navegador.')
+          stop()
+        }
       } else {
         lastTick = performance.now()
       }
@@ -251,30 +281,63 @@ const Recorder = (() => {
   }
 
   function stop () {
-    if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
-    else finalize()
+    if (stopRequested || finalizing) return
+    stopRequested = true
+    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+      mediaRecorder.stop()
+    } else if (!mediaRecorder) {
+      cleanupStreams()
+      onStopCallback = null
+    }
   }
 
   async function finalize () {
+    if (finalizing) return
+    finalizing = true
     clearInterval(timerInterval)
+    const info = getInfo()
     cleanupStreams()
 
     let result
     if (writable) {
       try { await writable.close() } catch (err) { console.error('[SnapRec] Error cerrando archivo:', err) }
-      result = { saved: 'disk', name: fileHandle.name, bytes: bytesWritten, handle: fileHandle }
+      result = { saved: 'disk', name: fileHandle.name, bytes: bytesWritten, handle: fileHandle, info }
     } else {
-      const mime = mediaRecorder?.mimeType || 'video/mp4'
+      const mime = mediaRecorder?.mimeType || sessionMimeType
       const blob = new Blob(chunks, { type: mime })
-      result = { saved: 'memory', name: suggestedName(), bytes: blob.size, blob }
+      result = { saved: 'memory', name: suggestedName(mime), bytes: blob.size, blob, info }
     }
 
     writable = null
     fileHandle = null
+    sessionMimeType = ''
     chunks = []
     mediaRecorder = null
 
-    if (onStopCallback) onStopCallback(result)
+    const callback = onStopCallback
+    onStopCallback = null
+    if (callback) callback(result)
+  }
+
+  function abort () {
+    clearInterval(timerInterval)
+    onStopCallback = null
+    finalizing = true
+    stopRequested = true
+    if (mediaRecorder) {
+      mediaRecorder.onstop = null
+      mediaRecorder.ondataavailable = null
+      try {
+        if (mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+      } catch {}
+    }
+    if (writable) writable.abort().catch(() => {})
+    writable = null
+    fileHandle = null
+    sessionMimeType = ''
+    chunks = []
+    mediaRecorder = null
+    cleanupStreams()
   }
 
   function cleanupStreams () {
@@ -300,5 +363,5 @@ const Recorder = (() => {
     }
   }
 
-  return { pickSaveTarget, start, togglePause, stop, isRecording, getStudio: () => studio, getInfo, getCameraStream: () => camStream, setTitle, getTitle }
+  return { pickSaveTarget, start, togglePause, stop, abort, isRecording, getStudio: () => studio, getInfo, getCameraStream: () => camStream, setTitle, getTitle }
 })()

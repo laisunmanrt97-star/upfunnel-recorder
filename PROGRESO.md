@@ -13,7 +13,7 @@ Grabador de pantalla **web** para hacer videotutoriales sin congelar el PC (OBS 
 - **Cámara USB** como burbuja flotante estilo Loom (Document Picture-in-Picture — siempre visible, queda grabada dentro del video, costo de CPU cero)
 - **Micrófono** (inalámbrico o cualquier input), mezclado con el audio del sistema si se comparte
 
-El video se guarda **directo al disco del PC** (File System Access API — la RAM no crece con la duración) como `.webm`. Un solo usuario, protegido con basic auth de nginx.
+El video se mantiene en memoria hasta que el usuario lo descarga como `.mp4`. El modo de escritura directa para grabaciones largas permanece en el plan de acción. Un solo usuario, protegido con basic auth de nginx.
 
 Hermano de SnapEdit. Desde 2026-07-11 ambos usan el **ADN visual Upfunnel**: Jet Black `#080C14`, Cyan Blue `#00E5FF`, Pure White, Slate Mist `#94A3B8`, tipografía Inter, glow cian sutil, logo oficial en el header (`assets/upfunnel-logo-horizontal-blanco-transparente.png`, mín. 152 px de ancho, nunca recrearlo).
 
@@ -57,17 +57,17 @@ snaprec/
 - **Limitación del espejo**: si grabas la pantalla completa donde está SnapRec, al volver a la pestaña a dibujar, el video muestra SnapRec. Mitigación documentada en la UI: compartir una VENTANA para señalar en vivo, o pausar→dibujar→reanudar en pantalla completa. Solución de fondo (v2) sería overlay nativo en escritorio.
 - **Modo CAPTURA**: pestaña nueva junto a GRABAR. Flujo: compartir pantalla/ventana (una vez, el stream queda vivo entre capturas) → countdown 3s para cambiar a la app objetivo → beep + título de pestaña avisan → editor con todas las herramientas de SnapEdit (incluye censura, pixelado y recorte) → COPIAR al portapapeles o descargar PNG.
 - **tools.js**: módulo compartido de dibujo (portado de SnapEdit) usado por el estudio y el editor; undo/redo por snapshots, texto con input flotante, countdown reutilizable.
-- **Verificado** con streams sintéticos: el webm grabado contiene pantalla + anotaciones (flecha cian, trazo rojo) + cámara, cada capa en su posición esperada.
+- **Verificado** con streams sintéticos: el video grabado contiene pantalla + anotaciones (flecha cian, trazo rojo) + cámara, cada capa en su posición esperada.
 
 ---
 
 ## Decisiones técnicas clave
 
 - **Web y no escritorio**: elegido por el usuario; Chrome ya está corriendo (no suma RAM) y el pipeline nativo de MediaRecorder es mucho más liviano que OBS.
-- **Codec**: se intenta `h264` (encode por hardware si el navegador lo da), luego `vp8`. Salida `.webm` — YouTube lo acepta directo.
+- **Codec y contenedor (2026-07-21)**: salida MP4 nativa con H.264/AAC (`avc1` + `mp4a`). Se eliminó el fallback H.264/Opus dentro de WebM porque Chromium generaba Matroska no interoperable. Si MP4 no está disponible, se solicita actualizar Chrome/Edge.
 - **Flujo de guardado (decisión de producto, 2026-07-11)**: se graba en memoria y **al terminar** el usuario revisa el video y decide si lo descarga — sin diálogo de guardado antes de grabar; si no descarga, no se guarda. Trade-off asumido: la RAM crece con la duración (~19 MB/min con el preset nativo). El guardado en streaming a disco (`Recorder.pickSaveTarget` + File System Access, chunks escritos directo al archivo) **sigue implementado y probado** — se reactivará más adelante, idealmente como opción "grabación larga". Nota técnica de la versión original: `showSaveFilePicker` debe llamarse DENTRO del click (la activación de usuario expira tras awaits largos).
 - **Countdown sin grabar basura**: el recorder arranca, se pausa durante el 3-2-1 y se reanuda al llegar a 0.
-- **Cámara incrustada (2026-07-11)**: la ventana Document PiP trae chrome de Chrome (barra de título "localhost", controles al hover) que salía grabado — rechazado por el usuario. Ahora la cámara se **composita dentro del video** vía el pipeline de canvas (círculo o rectángulo limpio con borde cian, esquina configurable ↖↗↙↘, tamaños S/M/L). La ventana PiP quedó como **vista previa** para encuadrarse antes de grabar: se cierra sola al iniciar (si quedara abierta saldría duplicada en el video). Verificado end-to-end con streams sintéticos: píxel de cámara en la esquina correcta del webm resultante.
+- **Cámara incrustada (2026-07-11)**: la ventana Document PiP trae chrome de Chrome (barra de título "localhost", controles al hover) que salía grabado — rechazado por el usuario. Ahora la cámara se **composita dentro del video** vía el pipeline de canvas (círculo o rectángulo limpio con borde cian, esquina configurable ↖↗↙↘, tamaños S/M/L). La ventana PiP quedó como **vista previa** para encuadrarse antes de grabar: se cierra sola al iniciar (si quedara abierta saldría duplicada en el video). Verificado end-to-end con streams sintéticos: píxel de cámara en la esquina correcta del video resultante.
 - **Costo del compositor**: con cámara incrustada (o modo área) el video pasa por canvas → más CPU que la captura directa. Si el PC sufre: preset LIGERA 15fps. Sin cámara y pantalla completa sigue siendo captura directa (0 CPU extra).
 - **Burbuja/vista previa**: se abre con su propio botón (gesto de usuario propio — Document PiP lo exige). Al cambiar cámara/forma/tamaño con la vista previa abierta, se reabre.
 - **Modo área**: única parte que re-encodea vía canvas (más CPU). Advertencia visible en la UI. Dimensiones del recorte forzadas a pares (requisito de algunos encoders).
@@ -83,7 +83,7 @@ snaprec/
 ## Roadmap (fuera de v1, por decisión del usuario)
 
 - Subida de videos al VPS con link para compartir con la comunidad
-- Conversión a MP4 server-side (ffmpeg en el VPS)
+- Remultiplexado o conversión server-side como respaldo para navegadores sin MP4 nativo
 - Edición/anotación post-grabación (posible puente con SnapEdit)
 - Multiusuario
 

@@ -17,6 +17,8 @@
   let quality = (navigator.hardwareConcurrency || 8) <= 4 ? 'light15' : 'hd720'
   let camMode = 'embed'     // embed | off
   let camCorner = 'br'      // tl | tr | bl | br
+  let camPosition = null    // posición libre normalizada { x, y }
+  let saveDirect = false
   let lastResult = null
   let lastObjectUrl = null
 
@@ -35,10 +37,12 @@
       if (p.quality) quality = p.quality
       if (p.camMode) camMode = p.camMode
       if (p.camCorner) camCorner = p.camCorner
+      if (typeof p.saveDirect === 'boolean') saveDirect = p.saveDirect
+      if (p.camPosition && Number.isFinite(p.camPosition.x) && Number.isFinite(p.camPosition.y)) camPosition = p.camPosition
     } catch {}
   }
   function savePrefs () {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, camCorner }))
+    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, camCorner, camPosition, saveDirect }))
   }
 
   function showView (name) {
@@ -71,7 +75,7 @@
     Tools.INKS.forEach((ink, i) => {
       const b = document.createElement('button')
       b.className = 'ink-swatch' + (i === 0 ? ' active' : '')
-      b.style.background = ink
+      b.dataset.inkIndex = i
       b.title = ink
       b.setAttribute('aria-label', 'Color de tinta ' + ink)
       b.addEventListener('click', () => {
@@ -111,6 +115,8 @@
       btn.classList.toggle('active', btn.dataset.tab === mainTab)
       btn.addEventListener('click', () => {
         mainTab = btn.dataset.tab
+        if (mainTab !== 'record') { Devices.stopVuMeter(); Bubble.close() }
+        if (mainTab !== 'capture') Capture.stopStream()
         savePrefs()
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn))
         document.getElementById('setup-record').hidden = (mainTab !== 'record')
@@ -135,6 +141,18 @@
       })
     })
     document.getElementById('area-warning').hidden = (mode !== 'area')
+
+    const saveDirectInput = document.getElementById('save-direct')
+    if (!window.showSaveFilePicker) {
+      saveDirect = false
+      saveDirectInput.disabled = true
+      saveDirectInput.parentElement.title = 'Tu navegador no admite guardado directo'
+    }
+    saveDirectInput.checked = saveDirect
+    saveDirectInput.addEventListener('change', () => {
+      saveDirect = saveDirectInput.checked
+      savePrefs()
+    })
 
     // Advertencia de CPU si tiene pocos núcleos
     const cpuWarn = document.getElementById('cpu-warning')
@@ -167,15 +185,16 @@
         camMode = btn.dataset.cammode
         savePrefs()
         document.querySelectorAll('.cam-mode').forEach(b => b.classList.toggle('active', b === btn))
-        document.getElementById('cam-embed-opts').style.opacity = camMode === 'embed' ? '1' : '0.35'
+        document.getElementById('cam-embed-opts').classList.toggle('disabled-options', camMode !== 'embed')
       })
     })
-    document.getElementById('cam-embed-opts').style.opacity = camMode === 'embed' ? '1' : '0.35'
+    document.getElementById('cam-embed-opts').classList.toggle('disabled-options', camMode !== 'embed')
 
     document.querySelectorAll('.cam-corner').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.corner === camCorner)
       btn.addEventListener('click', () => {
         camCorner = btn.dataset.corner
+        camPosition = null
         savePrefs()
         document.querySelectorAll('.cam-corner').forEach(b => b.classList.toggle('active', b === btn))
       })
@@ -230,11 +249,18 @@
         recTools.api = studioSurface
         // Mover canvas + tools al PiP
         const toolsEl = document.getElementById('rec-tools')
-        Bubble.openStudio(annotate, toolsEl).catch(() => {
+        Bubble.openStudio(annotate, toolsEl, studioSurface.overlayCanvas, {
+          previewStream: studio.stream,
+          width: studio.width,
+          height: studio.height,
+          getCameraRect: studio.getCameraRect,
+          setCameraPosition: studio.setCameraPosition
+        }).catch(() => {
           // Fallback: si falla el PiP, usar panel lateral
           const wrap = document.getElementById('side-annotate-wrap')
-          wrap.innerHTML = ''
+          wrap.replaceChildren()
           wrap.appendChild(annotate)
+          wrap.appendChild(studioSurface.overlayCanvas)
           sidePanel.classList.remove('collapsed')
         })
         sidePanel.classList.add('collapsed')
@@ -242,7 +268,7 @@
       } else {
         // ── Panel lateral (fallback sin PiP) ──
         const wrap = document.getElementById('side-annotate-wrap')
-        wrap.innerHTML = ''
+        wrap.replaceChildren()
         wrap.appendChild(annotate)
 
         studioSurface = Tools.attach(annotate, {
@@ -271,17 +297,6 @@
       toggleBtn.hidden = true
     }
 
-    // ── Cámara mini overlay en el preview ──
-    const camStream = Recorder.getCameraStream()
-    const camPreview = document.getElementById('cam-preview')
-    const camVideo = document.getElementById('cam-preview-video')
-    if (camStream) {
-      camVideo.srcObject = camStream
-      camPreview.hidden = false
-    } else {
-      camPreview.hidden = true
-    }
-
     // ── Botón cámara fullscreen ──
     const btnCamFull = document.getElementById('btn-cam-full')
     function updateCamFullBtn (active) {
@@ -295,8 +310,6 @@
       const next = !isActive
       updateCamFullBtn(next)
       if (studio && studio.setCameraOnly) studio.setCameraOnly(next)
-      // Ocultar el mini-overlay de cámara cuando está en fullscreen
-      camPreview.hidden = next || !camStream
     }
   }
 
@@ -305,53 +318,70 @@
     Bubble.closeStudio()
     const preview = document.getElementById('rec-preview')
     preview.srcObject = null
-    document.getElementById('cam-preview').hidden = true
-    document.getElementById('cam-preview-video').srcObject = null
     if (studioSurface) { studioSurface.destroy(); studioSurface = null }
     recTools.api = null
-    // Devolver tools bar al DOM original
-    const toolsBar = document.getElementById('rec-tools')
-    if (toolsBar && !toolsBar.parentElement) {
-      document.getElementById('rec-sidepanel').appendChild(toolsBar)
-    }
   }
 
   // ── Flujo de grabación ───────────────────────────────────────────────────
 
   async function startFlow () {
-    // Se graba en memoria, al terminar se previsualiza y el usuario decide si descargar o grabar otro.
-    // Sin diálogo de guardado previo: flujo rápido sin interrupciones.
+    if (saveDirect) {
+      const target = await Recorder.pickSaveTarget()
+      if (target === 'cancelled') return
+    }
 
     // 1. Abrir vista previa flotante de la cámara si corresponde
     // (Document Picture-in-Picture: se ve aunque cambies de ventana)
-    if (camMode === 'embed' && !Bubble.isOpen()) {
+    const previewWasOpen = Bubble.isOpen()
+    if (camMode === 'embed' && !previewWasOpen) {
       await Bubble.open().catch(() => {})
     }
+    const previewOpenedForAttempt = !previewWasOpen && Bubble.isOpen()
 
     // 2. Compartir pantalla + (opcional) seleccionar área + preparar recorder
     setStatus('PREPARANDO…')
     Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
     const camera = camMode === 'embed'
-      ? { shape: Bubble.getShape(), size: Bubble.getSize(), corner: camCorner }
+      ? {
+          shape: Bubble.getShape(),
+          size: Bubble.getSize(),
+          corner: camCorner,
+          position: camPosition,
+          onPositionChange: (position) => {
+            camPosition = position
+            document.querySelectorAll('.cam-corner').forEach(b => b.classList.remove('active'))
+            savePrefs()
+          }
+        }
       : null
     let started
     try {
       started = await Recorder.start({ mode, quality, camera, onStop: onRecordingDone })
     } catch (err) {
+      Recorder.abort()
+      if (previewOpenedForAttempt) Bubble.close()
       showView('setup')
       setStatus('LISTO')
-      if (err.name !== 'NotAllowedError') {
+      if (err.name === 'NotSupportedError') {
+        alert('Tu navegador no puede generar MP4 compatible. Actualiza Chrome o Edge a la versión más reciente.')
+      } else if (err.name !== 'NotAllowedError') {
         alert('No se pudo iniciar la grabación: ' + err.name)
         console.error('[SnapRec]', err)
       }
       return
     }
-    if (!started) { showView('setup'); setStatus('LISTO'); return }   // canceló la selección de área
+    if (!started) {
+      if (previewOpenedForAttempt) Bubble.close()
+      showView('setup')
+      setStatus('LISTO')
+      return
+    }   // canceló la selección de área
 
     // 3. Cuenta regresiva — el recorder ya corre, así que pausamos durante el 3-2-1
     Recorder.togglePause()
     Devices.stopVuMeter()
     await Tools.countdown(3)
+    if (!Recorder.isRecording()) return
     Recorder.togglePause()
 
     document.querySelector('.rec-topbar').classList.remove('paused')
@@ -360,6 +390,7 @@
     const titleInput = document.getElementById('rec-title')
     Recorder.setTitle(titleInput.value)
     mountStudio()
+    document.getElementById('btn-stop').disabled = false
     updateMetricsOnce()
     startMetricsInterval()
     showView('rec')
@@ -401,7 +432,7 @@
     window.focus()
 
     // Guardar metadatos en estadísticas
-    const recMeta = Recorder.getInfo()
+    const recMeta = result.info
     Stats.save({
       timestamp: Date.now(),
       duration: recMeta.duration,
@@ -457,7 +488,10 @@
       setStatus(state === 'paused' ? 'EN PAUSA — puedes dibujar' : 'GRABANDO')
     })
 
-    document.getElementById('btn-stop').addEventListener('click', () => Recorder.stop())
+    document.getElementById('btn-stop').addEventListener('click', (e) => {
+      e.currentTarget.disabled = true
+      Recorder.stop()
+    })
 
     document.getElementById('btn-toggle-panel').addEventListener('click', () => {
       const studio = Recorder.getStudio()
@@ -465,7 +499,7 @@
       const panel = document.getElementById('rec-sidepanel')
       const isCollapsed = panel.classList.toggle('collapsed')
       const btn = document.getElementById('btn-toggle-panel')
-      if (studio.setAnnotationsEnabled) studio.setAnnotationsEnabled(isCollapsed)
+      if (studio.setAnnotationsEnabled) studio.setAnnotationsEnabled(!isCollapsed)
       btn.textContent = isCollapsed ? '✏ MOSTRAR' : '✏ PANEL'
       btn.classList.toggle('active', !isCollapsed)
     })
@@ -484,7 +518,6 @@
       preview.removeAttribute('src')
       if (lastObjectUrl) { URL.revokeObjectURL(lastObjectUrl); lastObjectUrl = null }
       showView('setup')
-      Devices.startVuMeter()
       setStatus('LISTO')
     })
 
@@ -499,6 +532,7 @@
     try {
       ok = await Capture.take(capMode)
     } catch (err) {
+      Capture.stopStream()
       showView('setup')
       setStatus('LISTO')
       if (err.name !== 'NotAllowedError') {
@@ -508,7 +542,7 @@
       return
     }
     if (ok) { showView('edit'); setStatus('EDITANDO') }
-    else { showView('setup'); setStatus('LISTO') }
+    else { Capture.stopStream(); showView('setup'); setStatus('LISTO') }
   }
 
   function wireCaptureControls () {
@@ -530,6 +564,7 @@
 
     document.getElementById('btn-edit-close').addEventListener('click', () => {
       Capture.teardown()
+      Capture.stopStream()
       showView('setup')
       setStatus('LISTO')
     })
@@ -554,7 +589,7 @@
         return
       }
       if (key === 'escape') {
-        if (inEditor) { Capture.teardown(); showView('setup'); setStatus('LISTO') }
+        if (inEditor) { Capture.teardown(); Capture.stopStream(); showView('setup'); setStatus('LISTO') }
         else if (inDone) document.getElementById('btn-again').click()
         return
       }
@@ -581,6 +616,12 @@
   // Aviso si intenta cerrar la pestaña mientras graba
   window.addEventListener('beforeunload', (e) => {
     if (Recorder.isRecording()) { e.preventDefault(); e.returnValue = '' }
+  })
+  window.addEventListener('pagehide', () => {
+    Devices.stopVuMeter()
+    Capture.stopStream()
+    Bubble.close()
+    if (Recorder.isRecording()) Recorder.abort()
   })
 
   // ── Init ─────────────────────────────────────────────────────────────────

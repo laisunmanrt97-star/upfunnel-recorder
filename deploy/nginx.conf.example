@@ -1,49 +1,46 @@
-# SnapRec — configuración de ejemplo para nginx en el VPS
-#
-# Requisitos previos en el VPS:
-#   1. Copiar los archivos del proyecto a /var/www/snaprec
-#      (index.html, style.css, js/ — NO hace falta deploy/ ni PROGRESO.md)
-#   2. Crear la clave de acceso (un solo usuario):
-#        sudo apt install apache2-utils     # si no está htpasswd
-#        sudo htpasswd -c /etc/nginx/.htpasswd-snaprec gabriel
-#   3. Incluir este bloque en tu server {} HTTPS existente y recargar:
-#        sudo nginx -t && sudo systemctl reload nginx
-#
-# IMPORTANTE: debe servirse por HTTPS — los navegadores bloquean
-# getDisplayMedia/getUserMedia en sitios http:// (excepto localhost).
+# SnapRec debe desplegarse en la raiz de un subdominio dedicado.
+# Sustituye el dominio y las rutas de certificados antes de habilitarlo.
 
-# ── Opción A: como ruta dentro de tu dominio actual ──────────────────────────
-# https://tudominio.com/rec/
+server {
+    listen 80;
+    server_name rec.tudominio.com;
+    return 308 https://$host$request_uri;
+}
 
-location /rec/ {
-    alias /var/www/snaprec/;
+server {
+    listen 443 ssl http2;
+    server_name rec.tudominio.com;
+
+    ssl_certificate     /etc/letsencrypt/live/rec.tudominio.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/rec.tudominio.com/privkey.pem;
+
+    root /var/www/snaprec;
     index index.html;
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
 
     auth_basic           "SnapRec";
     auth_basic_user_file /etc/nginx/.htpasswd-snaprec;
 
-    # Estos headers dan mejor aislamiento y habilitan APIs de captura
-    add_header Cross-Origin-Opener-Policy same-origin;
-    add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)";
-}
+    add_header Content-Security-Policy "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; manifest-src 'self'; trusted-types snaprec-worker; require-trusted-types-for 'script'; upgrade-insecure-requests" always;
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options DENY always;
+    add_header Referrer-Policy no-referrer always;
+    add_header Strict-Transport-Security "max-age=31536000" always;
+    add_header Cross-Origin-Opener-Policy same-origin always;
+    add_header Cross-Origin-Resource-Policy same-origin always;
+    add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=(), usb=(), serial=(), bluetooth=(), hid=()" always;
+    add_header Cache-Control "no-store" always;
 
-# ── Opción B: como subdominio ─────────────────────────────────────────────────
-# https://rec.tudominio.com  (requiere DNS del subdominio + cert; con
-# wildcard o certbot --nginx -d rec.tudominio.com)
-#
-# server {
-#     listen 443 ssl;
-#     server_name rec.tudominio.com;
-#
-#     ssl_certificate     /etc/letsencrypt/live/tudominio.com/fullchain.pem;
-#     ssl_certificate_key /etc/letsencrypt/live/tudominio.com/privkey.pem;
-#
-#     root /var/www/snaprec;
-#     index index.html;
-#
-#     auth_basic           "SnapRec";
-#     auth_basic_user_file /etc/nginx/.htpasswd-snaprec;
-#
-#     add_header Cross-Origin-Opener-Policy same-origin;
-#     add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self)";
-# }
+    # El shell y el worker deben revalidarse para aplicar revocaciones y parches.
+    location = / {
+        try_files /index.html =404;
+    }
+
+    location = /index.html { }
+    location = /sw.js { }
+
+    location / {
+        try_files $uri =404;
+    }
+}

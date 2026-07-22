@@ -60,21 +60,24 @@ const Tools = (() => {
   function attach (canvas, opts) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })
     const maxHistory = opts.maxHistory || 25
+    const maxHistoryBytes = opts.maxHistoryBytes || 96 * 1024 * 1024
     let history = []
     let redoStack = []
+    let historyBytes = 0
     let drawing = false
     let startX = 0, startY = 0, lastX = 0, lastY = 0
     let snapshot = null   // solo para pixelate/crop
 
     // ── Overlay canvas (evita getImageData/putImageData en cada mousemove) ──
-    const overlay = document.createElement('canvas')
+    const overlay = canvas.ownerDocument.createElement('canvas')
     overlay.width = canvas.width
     overlay.height = canvas.height
     const oCtx = overlay.getContext('2d')
     overlay.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2;'
     const parent = canvas.parentElement
     if (parent) {
-      if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative'
+      const view = parent.ownerDocument.defaultView || window
+      if (view.getComputedStyle(parent).position === 'static') parent.style.position = 'relative'
       parent.appendChild(overlay)
     }
     function syncOverlaySize () {
@@ -94,8 +97,12 @@ const Tools = (() => {
     }
 
     function pushHistory () {
-      history.push(ctx.getImageData(0, 0, canvas.width, canvas.height))
-      if (history.length > maxHistory) history.shift()
+      const image = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      history.push(image)
+      historyBytes += image.data.byteLength
+      while (history.length > 1 && (history.length > maxHistory || historyBytes > maxHistoryBytes)) {
+        historyBytes -= history.shift().data.byteLength
+      }
       redoStack = []
       if (opts.onChange) opts.onChange()
     }
@@ -294,7 +301,9 @@ const Tools = (() => {
 
     function undo () {
       if (history.length < 2) return
-      redoStack.push(history.pop())
+      const image = history.pop()
+      historyBytes -= image.data.byteLength
+      redoStack.push(image)
       ctx.putImageData(history[history.length - 1], 0, 0)
       if (opts.onChange) opts.onChange()
     }
@@ -303,6 +312,7 @@ const Tools = (() => {
       if (!redoStack.length) return
       const img = redoStack.pop()
       history.push(img)
+      historyBytes += img.data.byteLength
       ctx.putImageData(img, 0, 0)
       if (opts.onChange) opts.onChange()
     }
@@ -324,7 +334,7 @@ const Tools = (() => {
       overlayCanvas: overlay,
       canUndo: () => history.length > 1,
       canRedo: () => redoStack.length > 0,
-      resetHistory: () => { history = []; redoStack = []; pushHistory() },
+      resetHistory: () => { history = []; redoStack = []; historyBytes = 0; pushHistory() },
       destroy: () => {
         canvas.removeEventListener('pointerdown', onDown)
         canvas.removeEventListener('pointermove', onMove)
@@ -373,14 +383,16 @@ const Tools = (() => {
   // pantalla escalando según el tamaño renderizado.
 
   function textInput ({ canvas, x, y, color, size, onCommit }) {
-    const existing = document.getElementById('snaprec-text-input')
+    const doc = canvas.ownerDocument || document
+    const view = doc.defaultView || window
+    const existing = doc.getElementById('snaprec-text-input')
     if (existing) existing.remove()
 
     const r = canvas.getBoundingClientRect()
     const scale = r.width / canvas.width
     const fontPx = Math.max(14, (size * 7 + 10) * scale)
 
-    const input = document.createElement('input')
+    const input = doc.createElement('input')
     input.id = 'snaprec-text-input'
     input.type = 'text'
     input.setAttribute('aria-label', 'Texto de la anotación')
@@ -397,8 +409,8 @@ const Tools = (() => {
       min-width: 90px;
       z-index: 9999;
     `
-    document.body.appendChild(input)
-    requestAnimationFrame(() => input.focus())
+    doc.body.appendChild(input)
+    view.requestAnimationFrame(() => input.focus())
 
     let committed = false
     const commit = () => {
@@ -406,12 +418,12 @@ const Tools = (() => {
       committed = true
       if (input.value.trim()) onCommit(input.value)
       input.remove()
-      document.removeEventListener('mousedown', outsideClick, true)
+      doc.removeEventListener('mousedown', outsideClick, true)
     }
     const cancel = () => {
       committed = true
       input.remove()
-      document.removeEventListener('mousedown', outsideClick, true)
+      doc.removeEventListener('mousedown', outsideClick, true)
     }
     const outsideClick = (e) => { if (e.target !== input) commit() }
 
@@ -421,7 +433,7 @@ const Tools = (() => {
       e.stopPropagation()
     })
     // Evitar que el mousedown que abrió el input lo cierre en el mismo ciclo
-    setTimeout(() => document.addEventListener('mousedown', outsideClick, true), 60)
+    setTimeout(() => doc.addEventListener('mousedown', outsideClick, true), 60)
   }
 
   return { attach, drawArrow, applyPixelate, countdown, textInput, INKS }
