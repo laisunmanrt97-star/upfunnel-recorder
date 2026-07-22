@@ -202,7 +202,7 @@ const Stats = (() => {
     const rows = await query(period)
     const map = {}
     for (const r of rows) {
-      const day = new Date(r.timestamp).toISOString().slice(0, 10)  // YYYY-MM-DD
+      const day = new Date(r.timestamp).toLocaleDateString('en-CA')  // YYYY-MM-DD en zona local
       if (!map[day]) map[day] = { count: 0, totalSize: 0, totalDuration: 0 }
       map[day].count++
       map[day].totalSize += r.size || 0

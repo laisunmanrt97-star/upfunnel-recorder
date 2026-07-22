@@ -523,6 +523,17 @@
 
   }
 
+  function updateCapStopButtons () {
+    const hasStream = Capture.hasLiveStream()
+    document.getElementById('btn-cap-stop').hidden = !hasStream
+    document.getElementById('btn-edit-stop').hidden = !hasStream
+  }
+
+  function stopCaptureStream () {
+    Capture.stopStream()
+    updateCapStopButtons()
+  }
+
   // ── Flujo de captura ─────────────────────────────────────────────────────
 
   async function captureFlow () {
@@ -532,7 +543,7 @@
     try {
       ok = await Capture.take(capMode)
     } catch (err) {
-      Capture.stopStream()
+      stopCaptureStream()
       showView('setup')
       setStatus('LISTO')
       if (err.name !== 'NotAllowedError') {
@@ -541,13 +552,17 @@
       }
       return
     }
+    updateCapStopButtons()
     if (ok) { showView('edit'); setStatus('EDITANDO') }
-    else { Capture.stopStream(); showView('setup'); setStatus('LISTO') }
+    else { stopCaptureStream(); showView('setup'); setStatus('LISTO') }
   }
 
   function wireCaptureControls () {
     document.getElementById('btn-capture').addEventListener('click', captureFlow)
     document.getElementById('btn-recapture').addEventListener('click', captureFlow)
+
+    document.getElementById('btn-cap-stop').addEventListener('click', stopCaptureStream)
+    document.getElementById('btn-edit-stop').addEventListener('click', stopCaptureStream)
 
     document.getElementById('btn-copy').addEventListener('click', async () => {
       const btn = document.getElementById('btn-copy')
@@ -564,7 +579,7 @@
 
     document.getElementById('btn-edit-close').addEventListener('click', () => {
       Capture.teardown()
-      Capture.stopStream()
+      stopCaptureStream()
       showView('setup')
       setStatus('LISTO')
     })

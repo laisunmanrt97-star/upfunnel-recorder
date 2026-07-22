@@ -175,7 +175,7 @@ const Bubble = (() => {
     // Cargar estilos de la app en el PiP (URL absoluta desde el root)
     const link = doc.createElement('link')
     link.rel = 'stylesheet'
-    link.href = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '') + '/style.css?v=128'
+    link.href = window.location.origin + window.location.pathname.replace(/\/[^/]*$/, '') + '/style.css?v=129'
     doc.head.appendChild(link)
 
     // Body: flex column, canvas arriba, tools abajo

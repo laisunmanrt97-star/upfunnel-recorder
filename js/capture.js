@@ -128,9 +128,13 @@ const Capture = (() => {
     setTimeout(() => URL.revokeObjectURL(a.href), 5000)
   }
 
+  function hasLiveStream () {
+    return captureStream !== null && captureStream.getVideoTracks()[0]?.readyState === 'live'
+  }
+
   function teardown () {
     if (surface) { surface.destroy(); surface = null }
   }
 
-  return { init, take, copyToClipboard, download, stopStream, teardown }
+  return { init, take, copyToClipboard, download, stopStream, hasLiveStream, teardown }
 })()

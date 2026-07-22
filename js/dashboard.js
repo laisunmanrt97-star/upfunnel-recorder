@@ -124,11 +124,30 @@ const Dashboard = (() => {
     }
   }
 
+  function showChartFallback (msg) {
+    const canvas = document.getElementById('dash-chart')
+    const fallback = document.getElementById('dash-chart-fallback')
+    canvas.hidden = true
+    fallback.hidden = false
+    fallback.textContent = msg
+  }
+
+  function renderChartFallback (ctx, msg) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height)
+    ctx.fillStyle = '#94A3B8'
+    ctx.font = '14px Inter, Segoe UI, sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText(msg, ctx.canvas.width / 2, ctx.canvas.height / 2)
+  }
+
   // ── Gráfica de barras (grabaciones por día) ─────────────────────────────
 
   function renderChart (dayMap, label) {
     const canvas = document.getElementById('dash-chart')
     const ctx = canvas.getContext('2d')
+    const fallback = document.getElementById('dash-chart-fallback')
+    canvas.hidden = false
+    if (fallback) fallback.hidden = true
 
     if (chartInstance) { chartInstance.destroy(); chartInstance = null }
 
@@ -145,72 +164,80 @@ const Dashboard = (() => {
     const counts = days.map(d => dayMap[d].count)
     const durations = days.map(d => Math.round(dayMap[d].totalDuration / 60)) // minutos
 
-    chartInstance = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: days.map(d => d.slice(5)), // MM-DD
-        datasets: [
-          {
-            label: 'Grabaciones',
-            data: counts,
-            backgroundColor: 'rgba(0, 229, 255, 0.7)',
-            borderColor: '#00E5FF',
-            borderWidth: 1,
-            borderRadius: 4,
-            yAxisID: 'y'
+    try {
+      if (typeof Chart !== 'undefined') {
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: days.map(d => d.slice(5)),
+            datasets: [
+              {
+                label: 'Grabaciones',
+                data: counts,
+                backgroundColor: 'rgba(0, 229, 255, 0.7)',
+                borderColor: '#00E5FF',
+                borderWidth: 1,
+                borderRadius: 4,
+                yAxisID: 'y'
+              },
+              {
+                label: 'Minutos',
+                data: durations,
+                backgroundColor: 'rgba(148, 163, 184, 0.5)',
+                borderColor: '#94A3B8',
+                borderWidth: 1,
+                borderRadius: 4,
+                yAxisID: 'y1'
+              }
+            ]
           },
-          {
-            label: 'Minutos',
-            data: durations,
-            backgroundColor: 'rgba(148, 163, 184, 0.5)',
-            borderColor: '#94A3B8',
-            borderWidth: 1,
-            borderRadius: 4,
-            yAxisID: 'y1'
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: {
-            labels: { color: '#94A3B8', font: { family: 'Segoe UI' } }
-          },
-          tooltip: {
-            backgroundColor: '#080C14',
-            borderColor: 'rgba(148,163,184,0.25)',
-            borderWidth: 1,
-            titleColor: '#FFFFFF',
-            bodyColor: '#94A3B8',
-            callbacks: {
-              label: (ctx) => {
-                if (ctx.dataset.label === 'Minutos') return `${ctx.raw} min`
-                return `${ctx.raw} grabaciones`
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+              legend: {
+                labels: { color: '#94A3B8', font: { family: 'Segoe UI' } }
+              },
+              tooltip: {
+                backgroundColor: '#080C14',
+                borderColor: 'rgba(148,163,184,0.25)',
+                borderWidth: 1,
+                titleColor: '#FFFFFF',
+                bodyColor: '#94A3B8',
+                callbacks: {
+                  label: (ctx) => {
+                    if (ctx.dataset.label === 'Minutos') return `${ctx.raw} min`
+                    return `${ctx.raw} grabaciones`
+                  }
+                }
+              }
+            },
+            scales: {
+              x: {
+                ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' } },
+                grid: { color: 'rgba(148,163,184,0.1)' }
+              },
+              y: {
+                beginAtZero: true,
+                ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' }, stepSize: 1 },
+                grid: { color: 'rgba(148,163,184,0.1)' }
+              },
+              y1: {
+                beginAtZero: true,
+                position: 'right',
+                ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' } },
+                grid: { display: false }
               }
             }
           }
-        },
-        scales: {
-          x: {
-            ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' } },
-            grid: { color: 'rgba(148,163,184,0.1)' }
-          },
-          y: {
-            beginAtZero: true,
-            ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' }, stepSize: 1 },
-            grid: { color: 'rgba(148,163,184,0.1)' }
-          },
-          y1: {
-            beginAtZero: true,
-            position: 'right',
-            ticks: { color: '#94A3B8', font: { size: 10, family: 'Segoe UI' } },
-            grid: { display: false }
-          }
-        }
+        })
+      } else {
+        showChartFallback('Chart.js no está disponible')
       }
-    })
+    } catch (err) {
+      showChartFallback('Gráfica no disponible')
+    }
   }
 
   // ── Cards de "todos los tiempos" ───────────────────────────────────────

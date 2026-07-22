@@ -3,9 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; form-action 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; manifest-src 'self'; trusted-types snaprec-worker; require-trusted-types-for 'script'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; worker-src 'self'; connect-src 'self'; manifest-src 'self'; trusted-types snaprec-worker; require-trusted-types-for 'script'; upgrade-insecure-requests">
   <title>SnapRec</title>
-  <link rel="stylesheet" href="style.css?v=128">
+  <link rel="stylesheet" href="style.css?v=129">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#080C14">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -116,8 +116,9 @@
 
       <section class="panel">
         <button id="btn-capture" class="big-btn" aria-label="Tomar captura">📸 CAPTURAR</button>
+        <button id="btn-cap-stop" class="opt-btn" aria-label="Detener pantalla compartida" hidden>⏹ DETENER PANTALLA</button>
         <p class="muted">Chrome te pide qué compartir (pantalla o ventana) → cuenta regresiva de 3 segundos para que cambies a la app que quieres capturar → suena un aviso y vuelves aquí a editar.</p>
-        <p class="muted">La pantalla compartida permanece activa mientras editas y se detiene al cerrar el editor.</p>
+        <p class="muted">La pantalla compartida permanece activa mientras editas. Podés detenerla manualmente con el botón "DETENER PANTALLA" o se detiene al cerrar el editor.</p>
       </section>
 
     </div>
@@ -176,7 +177,8 @@
       </div>
 
       <div class="dash-chart-wrap">
-        <canvas id="dash-chart" height="250"></canvas>
+        <canvas id="dash-chart" height="250" aria-label="Gráfica de grabaciones por día"></canvas>
+        <p id="dash-chart-fallback" class="muted" hidden>La gráfica no está disponible en este navegador.</p>
       </div>
 
       <div id="dash-period-cards" class="dash-period-cards"></div>
@@ -275,8 +277,9 @@
       <div class="btn-row">
         <button id="btn-copy" class="opt-btn" aria-label="Copiar captura al portapapeles">⧉ COPIAR</button>
         <button id="btn-download-png" class="opt-btn" aria-label="Descargar captura como PNG">↓ PNG</button>
-        <button id="btn-recapture" class="opt-btn" aria-label="Tomar otra captura">📸 OTRA</button>
-        <button id="btn-edit-close" class="opt-btn danger" aria-label="Cerrar editor">× CERRAR</button>
+          <button id="btn-recapture" class="opt-btn" aria-label="Tomar otra captura">📸 OTRA</button>
+          <button id="btn-edit-stop" class="opt-btn" aria-label="Detener pantalla compartida" hidden>⏹ PANTALLA</button>
+          <button id="btn-edit-close" class="opt-btn danger" aria-label="Cerrar editor">× CERRAR</button>
       </div>
     </div>
 
@@ -320,28 +323,28 @@
   </main>
 
   <!-- ══ COUNTDOWN ═════════════════════════════════════════════════ -->
-  <div id="countdown" hidden>
+  <div id="countdown" hidden role="alert" aria-live="assertive">
     <span id="countdown-num">3</span>
     <p id="countdown-hint"></p>
     <button id="countdown-skip" class="opt-btn">SALTAR →</button>
   </div>
 
-  <div id="statusbar">
+  <div id="statusbar" role="status" aria-live="polite">
     <div class="status-item">MIC: <span id="st-mic">—</span></div>
     <div class="status-item">CÁMARA: <span id="st-cam">—</span></div>
     <div class="status-item status-spacer">SNAPREC v1.3.0</div>
   </div>
 
   <script src="assets/chart.umd.min.js?v=4.4.7"></script>
-  <script src="js/tools.js?v=128"></script>
-  <script src="js/devices.js?v=128"></script>
-  <script src="js/bubble.js?v=128"></script>
-  <script src="js/stats.js?v=128"></script>
-  <script src="js/dashboard.js?v=128"></script>
-  <script src="js/crop.js?v=128"></script>
-  <script src="js/recorder.js?v=128"></script>
-  <script src="js/capture.js?v=128"></script>
-  <script src="js/app.js?v=128"></script>
-  <script src="js/sw-register.js?v=128"></script>
+  <script src="js/tools.js?v=129"></script>
+  <script src="js/devices.js?v=129"></script>
+  <script src="js/bubble.js?v=129"></script>
+  <script src="js/stats.js?v=129"></script>
+  <script src="js/dashboard.js?v=129"></script>
+  <script src="js/crop.js?v=129"></script>
+  <script src="js/recorder.js?v=129"></script>
+  <script src="js/capture.js?v=129"></script>
+  <script src="js/app.js?v=129"></script>
+  <script src="js/sw-register.js?v=129"></script>
 </body>
 </html>

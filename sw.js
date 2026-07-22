@@ -1,4 +1,4 @@
-const CACHE = 'snaprec-v7'
+const CACHE = 'snaprec-v8'
 const ASSETS = [
   '/style.css',
   '/manifest.json',
@@ -6,6 +6,7 @@ const ASSETS = [
   '/assets/icon-512.svg',
   '/assets/upfunnel-logo-horizontal-blanco-transparente.png',
   '/assets/chart.umd.min.js',
+  '/assets/Inter-variable.woff2',
   '/js/tools.js',
   '/js/devices.js',
   '/js/bubble.js',

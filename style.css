@@ -2,6 +2,14 @@
    Paleta oficial: Jet Black #080C14 · Cyan Blue #00E5FF · Pure White #FFFFFF · Slate Mist #94A3B8
    Tipografía única: Inter. Estética: futuristic minimalism, flat con profundidad sutil (glow cian). */
 
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400 800;
+  src: url('assets/Inter-variable.woff2') format('woff2');
+  font-display: swap;
+}
+
 :root {
   --uf-bg:     #080C14;                      /* Jet Black — fondo dominante */
   --uf-accent: #00E5FF;                      /* Cyan Blue — CTAs, highlights, glow */
@@ -11,7 +19,7 @@
   --uf-border:  rgba(148, 163, 184, 0.25);   /* borde sutil oficial */
   --uf-accent-soft: rgba(0, 229, 255, 0.08);
   --uf-glow: 0 0 24px rgba(0, 229, 255, 0.35);
-  --uf-font: 'Segoe UI', Arial, sans-serif;
+  --uf-font: 'Inter', 'Segoe UI', Arial, sans-serif;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -578,6 +586,10 @@ select {
   .dash-period-cards { grid-template-columns: 1fr; }
   .side-panel { width: 100%; min-width: unset; }
   #rec-body { flex-direction: column; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #rec-dot { animation: none; text-shadow: none; }
 }
 
 [hidden] { display: none !important; }
