@@ -14,6 +14,7 @@ const Crop = (() => {
   // Tamaño de la cámara incrustada como fracción del lado menor del video
   const CAM_SIZES = { s: 0.18, m: 0.25, l: 0.33 }
   const CAM_MARGIN = 24
+  const MAX_COMPOSITE_PIXELS = 3_686_400  // ≈ 2560×1440
 
   // ── Utilidades de stream ───────────────────────────────────────────────────
 
@@ -78,6 +79,13 @@ const Crop = (() => {
       const scale = targetHeight / outH
       outW = Math.round(outW * scale) & ~1   // dimensiones pares
       outH = targetHeight & ~1
+    }
+
+    // Límite absoluto de píxeles compuestos
+    if (outW * outH > MAX_COMPOSITE_PIXELS) {
+      const scale = Math.sqrt(MAX_COMPOSITE_PIXELS / (outW * outH))
+      outW = Math.round(outW * scale) & ~1
+      outH = Math.round(outH * scale) & ~1
     }
 
     const cv = document.createElement('canvas')

@@ -94,7 +94,9 @@ const Stats = (() => {
   }
 
   function pruneExpired (now = Date.now()) {
-    return enqueueWrite(() => pruneForPreferences(getPreferences(), now))
+    return enqueueWrite(() => pruneForPreferences(getPreferences(), now)).catch(err => {
+      console.error('[SnapRec Stats] pruneExpired failed:', err)
+    })
   }
 
   async function save (data) {

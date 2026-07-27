@@ -24,6 +24,7 @@
   let recTools = null       // estado del toolbar del estudio
   let editTools = null      // estado del toolbar del editor de capturas
   let studioSurface = null  // Tools.attach del estudio (para teardown)
+  let cameraDragCleanup = null  // limpia listeners de arrastre de cámara
 
   const PREF_KEY = 'snaprec-opts'
 
@@ -194,6 +195,7 @@
     if (!studio) return
 
     const preview = document.getElementById('rec-preview')
+    if (!preview) return
     preview.srcObject = studio.stream
 
     const annotate = studio.annotationCanvas
@@ -204,11 +206,15 @@
       annotate.id = 'rec-annotate'
       annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
 
-      // ── Panel lateral (sin PiP: la ventana flotante se capturaría por
-      //     el screen share y crearía duplicados en el video) ──
-      const wrap = document.getElementById('side-annotate-wrap')
-      wrap.replaceChildren()
-      wrap.appendChild(annotate)
+      // Overlay sobre el preview: el canvas de anotaciones se superpone
+      // al video para que el usuario pueda arrastrar la cámara justo donde
+      // la ve, sin tener que interactuar en un panel separado.
+      const overlay = document.getElementById('annotate-overlay')
+      if (overlay) {
+        overlay.replaceChildren()
+        overlay.appendChild(annotate)
+        overlay.hidden = false
+      }
 
       studioSurface = Tools.attach(annotate, {
         getTool:  () => recTools.tool,
@@ -244,7 +250,7 @@
                  point.y >= rect.y && point.y <= rect.y + rect.h
         }
 
-        annotate.addEventListener('pointerdown', (event) => {
+        function onCameraPointerDown (event) {
           if (event.button !== 0) return
           const point = toNative(event)
           const rect = studio.getCameraRect()
@@ -255,40 +261,54 @@
           annotate.setPointerCapture(event.pointerId)
           event.preventDefault()
           event.stopImmediatePropagation()
-        }, true)
+        }
 
-        annotate.addEventListener('pointermove', (event) => {
+        function onCameraPointerMove (event) {
           const point = toNative(event)
           annotate.style.cursor = draggingCamera || isOverCamera(point) ? 'move' : 'crosshair'
           if (!draggingCamera) return
           studio.setCameraPosition(point.x - offsetX, point.y - offsetY)
           event.preventDefault()
           event.stopImmediatePropagation()
-        }, true)
+        }
 
-        const finishCameraDrag = (event) => {
+        function finishCameraDrag (event) {
           if (!draggingCamera) return
           draggingCamera = false
           event.preventDefault()
           event.stopImmediatePropagation()
         }
+
+        annotate.addEventListener('pointerdown', onCameraPointerDown, true)
+        annotate.addEventListener('pointermove', onCameraPointerMove, true)
         annotate.addEventListener('pointerup', finishCameraDrag, true)
         annotate.addEventListener('pointercancel', finishCameraDrag, true)
+
+        cameraDragCleanup = () => {
+          annotate.removeEventListener('pointerdown', onCameraPointerDown, true)
+          annotate.removeEventListener('pointermove', onCameraPointerMove, true)
+          annotate.removeEventListener('pointerup', finishCameraDrag, true)
+          annotate.removeEventListener('pointercancel', finishCameraDrag, true)
+        }
       }
 
       recTools.api = studioSurface
-      sidePanel.classList.remove('collapsed')
-      toggleBtn.hidden = false
-      toggleBtn.textContent = '✏ PANEL'
-      toggleBtn.classList.add('active')
+      if (sidePanel) sidePanel.classList.remove('collapsed')
+      if (toggleBtn) {
+        toggleBtn.hidden = false
+        toggleBtn.textContent = '✏ PANEL'
+        toggleBtn.classList.add('active')
+      }
     } else {
-      // Bypass: ocultar todo el panel lateral
-      sidePanel.classList.add('collapsed')
-      toggleBtn.hidden = true
+      const overlay = document.getElementById('annotate-overlay')
+      if (overlay) overlay.hidden = true
+      if (sidePanel) sidePanel.classList.add('collapsed')
+      if (toggleBtn) toggleBtn.hidden = true
     }
 
     // ── Botón cámara fullscreen ──
     const btnCamFull = document.getElementById('btn-cam-full')
+    if (!btnCamFull) return
     function updateCamFullBtn (active) {
       btnCamFull.classList.toggle('active', active)
       btnCamFull.textContent = active ? '🎥 PANTALLA' : '🎥 CÁMARA'
@@ -305,8 +325,9 @@
 
   function teardownStudio () {
     stopMetricsInterval()
+    if (cameraDragCleanup) { cameraDragCleanup(); cameraDragCleanup = null }
     const preview = document.getElementById('rec-preview')
-    preview.srcObject = null
+    if (preview) preview.srcObject = null
     if (studioSurface) { studioSurface.destroy(); studioSurface = null }
     recTools.api = null
   }
@@ -478,6 +499,8 @@
       const isCollapsed = panel.classList.toggle('collapsed')
       const btn = document.getElementById('btn-toggle-panel')
       if (studio.setAnnotationsEnabled) studio.setAnnotationsEnabled(!isCollapsed)
+      const overlay = document.getElementById('annotate-overlay')
+      if (overlay) overlay.hidden = isCollapsed
       btn.textContent = isCollapsed ? '✏ MOSTRAR' : '✏ PANEL'
       btn.classList.toggle('active', !isCollapsed)
     })

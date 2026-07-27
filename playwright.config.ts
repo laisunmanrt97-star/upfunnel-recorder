@@ -15,7 +15,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testMatch: /smoke\.spec\.ts/,
+      testMatch: /(smoke|cleanup)\.spec\.ts/,
       use: { ...devices['Desktop Chrome'], serviceWorkers: 'block' },
       launchOptions: {
         args: [
