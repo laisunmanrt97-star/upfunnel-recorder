@@ -16,6 +16,7 @@
   // Auto-detectar preset según CPU: ≤4 cores → liviano, sino → HD
   let quality = (navigator.hardwareConcurrency || 8) <= 4 ? 'light15' : 'hd720'
   let camMode = 'embed'     // embed | off
+  let micMode = 'on'        // on | off
   let camPosition = null    // posición libre normalizada { x, y }
   let saveDirect = false
   let lastResult = null
@@ -36,12 +37,13 @@
       if (p.capMode) capMode = p.capMode
       if (p.quality) quality = p.quality
       if (p.camMode) camMode = p.camMode
+      if (p.micMode) micMode = p.micMode
       if (typeof p.saveDirect === 'boolean') saveDirect = p.saveDirect
       if (p.camPosition && Number.isFinite(p.camPosition.x) && Number.isFinite(p.camPosition.y)) camPosition = p.camPosition
     } catch {}
   }
   function savePrefs () {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, camPosition, saveDirect }))
+    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, micMode, camPosition, saveDirect }))
   }
 
   function showView (name) {
@@ -184,6 +186,16 @@
         camMode = btn.dataset.cammode
         savePrefs()
         document.querySelectorAll('.cam-mode').forEach(b => b.classList.toggle('active', b === btn))
+      })
+    })
+
+    // Micrófono (activado / sin mic)
+    document.querySelectorAll('.mic-mode').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.micmode === micMode)
+      btn.addEventListener('click', () => {
+        micMode = btn.dataset.micmode
+        savePrefs()
+        document.querySelectorAll('.mic-mode').forEach(b => b.classList.toggle('active', b === btn))
       })
     })
   }
@@ -358,7 +370,7 @@
     Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
     let started
     try {
-      started = await Recorder.start({ mode, quality, camera, onStop: onRecordingDone })
+      started = await Recorder.start({ mode, quality, camera, mic: micMode !== 'off', onStop: onRecordingDone })
     } catch (err) {
       Recorder.abort()
       showView('setup')
@@ -389,7 +401,15 @@
     // Sincronizar título escrito antes de la cuenta regresiva
     const titleInput = document.getElementById('rec-title')
     Recorder.setTitle(titleInput.value)
-    mountStudio()
+    try {
+      mountStudio()
+    } catch (err) {
+      console.error('[SnapRec] mountStudio falló, abortando grabación:', err)
+      Recorder.abort()
+      showView('setup')
+      setStatus('LISTO')
+      return
+    }
     document.getElementById('btn-stop').disabled = false
     updateMetricsOnce()
     startMetricsInterval()

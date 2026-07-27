@@ -64,7 +64,11 @@
         <div id="vu-wrap" aria-hidden="true">
           <div id="vu-bar"></div>
         </div>
-        <p class="muted">El micrófono solo se activa al probarlo o al iniciar una grabación.</p>
+        <div class="btn-row" role="radiogroup" aria-label="Micrófono en la grabación">
+          <button class="opt-btn mic-mode active" data-micmode="on" aria-label="Grabar con micrófono">ACTIVADO</button>
+          <button class="opt-btn mic-mode" data-micmode="off" aria-label="Grabar sin micrófono">SIN MIC</button>
+        </div>
+        <p class="muted">Si eliges SIN MIC, SnapRec no pedirá permiso de micrófono al grabar.</p>
       </section>
 
       <section class="panel">

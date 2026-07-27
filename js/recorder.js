@@ -85,7 +85,7 @@ const Recorder = (() => {
   // ── Iniciar grabación ─────────────────────────────────────────────────────
   // mode: 'full' | 'area'   quality: clave de PRESETS
   // camera: null | { shape, size, corner } → se incrusta limpia en el video
-  async function start ({ mode, quality, camera, onStop }) {
+  async function start ({ mode, quality, camera, mic, onStop }) {
     finalizing = false
     stopRequested = false
     onStopCallback = onStop
@@ -168,17 +168,20 @@ const Recorder = (() => {
     }
 
     // ── Mezcla de audio: mic opcional + audio del sistema (si existe) ──
-    try {
-      micStream = await Devices.getMicStream()
-    } catch (err) {
-      console.warn('[SnapRec] Sin microfono, se graba sin el:', err.name)
-      micStream = null
+    if (mic !== false) {
+      try {
+        micStream = await Devices.getMicStream()
+      } catch (err) {
+        console.warn('[SnapRec] Sin microfono, se graba sin el:', err.name)
+        micStream = null
+      }
     }
 
     let mixedAudioTracks = []
     const systemAudioTracks = displayStream.getAudioTracks()
     if (micStream || systemAudioTracks.length > 0) {
       mixCtx = new AudioContext()
+      if (mixCtx.state === 'suspended') await mixCtx.resume()
       const dest = mixCtx.createMediaStreamDestination()
       if (micStream) mixCtx.createMediaStreamSource(micStream).connect(dest)
       if (systemAudioTracks.length > 0) {
