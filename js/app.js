@@ -230,67 +230,84 @@
       annotate.id = 'rec-annotate'
       annotate.setAttribute('aria-label', 'Superficie de anotación en vivo')
 
-      if (Bubble.isSupported()) {
-        // ── PiP flotante: el canvas + tools van a una ventana siempre-visible ──
-        studioSurface = Tools.attach(annotate, {
-          getTool:  () => recTools.tool,
-          getColor: () => recTools.color,
-          getSize:  () => recTools.size,
-          maxHistory: 3,
-          onText: (x, y) => {
-            Tools.textInput({
-              canvas: annotate, x, y,
-              color: recTools.color,
-              size: recTools.size,
-              onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
-            })
-          }
-        })
-        recTools.api = studioSurface
-        // Mover canvas + tools al PiP
-        const toolsEl = document.getElementById('rec-tools')
-        Bubble.openStudio(annotate, toolsEl, studioSurface.overlayCanvas, {
-          previewStream: studio.stream,
-          width: studio.width,
-          height: studio.height,
-          getCameraRect: studio.getCameraRect,
-          setCameraPosition: studio.setCameraPosition
-        }).catch(() => {
-          // Fallback: si falla el PiP, usar panel lateral
-          const wrap = document.getElementById('side-annotate-wrap')
-          wrap.replaceChildren()
-          wrap.appendChild(annotate)
-          wrap.appendChild(studioSurface.overlayCanvas)
-          sidePanel.classList.remove('collapsed')
-        })
-        sidePanel.classList.add('collapsed')
-        toggleBtn.hidden = true
-      } else {
-        // ── Panel lateral (fallback sin PiP) ──
-        const wrap = document.getElementById('side-annotate-wrap')
-        wrap.replaceChildren()
-        wrap.appendChild(annotate)
+      // ── Panel lateral (sin PiP: la ventana flotante se capturaría por
+      //     el screen share y crearía duplicados en el video) ──
+      const wrap = document.getElementById('side-annotate-wrap')
+      wrap.replaceChildren()
+      wrap.appendChild(annotate)
 
-        studioSurface = Tools.attach(annotate, {
-          getTool:  () => recTools.tool,
-          getColor: () => recTools.color,
-          getSize:  () => recTools.size,
-          maxHistory: 3,
-          onText: (x, y) => {
-            Tools.textInput({
-              canvas: annotate, x, y,
-              color: recTools.color,
-              size: recTools.size,
-              onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
-            })
+      studioSurface = Tools.attach(annotate, {
+        getTool:  () => recTools.tool,
+        getColor: () => recTools.color,
+        getSize:  () => recTools.size,
+        maxHistory: 3,
+        onText: (x, y) => {
+          Tools.textInput({
+            canvas: annotate, x, y,
+            color: recTools.color,
+            size: recTools.size,
+            onCommit: (text) => studioSurface.commitText(text, x, y, recTools.color, recTools.size)
+          })
+        }
+      })
+
+      // Arrastre de cámara dentro del canvas de anotaciones (misma lógica
+      // que estaba en Bubble.openStudio)
+      if (studio.getCameraRect && studio.setCameraPosition) {
+        let draggingCamera = false
+        let offsetX = 0, offsetY = 0
+
+        function toNative (event) {
+          const rect = annotate.getBoundingClientRect()
+          return {
+            x: (event.clientX - rect.left) * (annotate.width / rect.width),
+            y: (event.clientY - rect.top) * (annotate.height / rect.height)
           }
-        })
-        recTools.api = studioSurface
-        sidePanel.classList.remove('collapsed')
-        toggleBtn.hidden = false
-        toggleBtn.textContent = '✏ PANEL'
-        toggleBtn.classList.add('active')
+        }
+
+        function isOverCamera (point) {
+          const rect = studio.getCameraRect()
+          return rect && point.x >= rect.x && point.x <= rect.x + rect.w &&
+                 point.y >= rect.y && point.y <= rect.y + rect.h
+        }
+
+        annotate.addEventListener('pointerdown', (event) => {
+          if (event.button !== 0) return
+          const point = toNative(event)
+          const rect = studio.getCameraRect()
+          if (!rect || !isOverCamera(point)) return
+          draggingCamera = true
+          offsetX = point.x - rect.x
+          offsetY = point.y - rect.y
+          annotate.setPointerCapture(event.pointerId)
+          event.preventDefault()
+          event.stopImmediatePropagation()
+        }, true)
+
+        annotate.addEventListener('pointermove', (event) => {
+          const point = toNative(event)
+          annotate.style.cursor = draggingCamera || isOverCamera(point) ? 'move' : 'crosshair'
+          if (!draggingCamera) return
+          studio.setCameraPosition(point.x - offsetX, point.y - offsetY)
+          event.preventDefault()
+          event.stopImmediatePropagation()
+        }, true)
+
+        const finishCameraDrag = (event) => {
+          if (!draggingCamera) return
+          draggingCamera = false
+          event.preventDefault()
+          event.stopImmediatePropagation()
+        }
+        annotate.addEventListener('pointerup', finishCameraDrag, true)
+        annotate.addEventListener('pointercancel', finishCameraDrag, true)
       }
+
+      recTools.api = studioSurface
+      sidePanel.classList.remove('collapsed')
+      toggleBtn.hidden = false
+      toggleBtn.textContent = '✏ PANEL'
+      toggleBtn.classList.add('active')
     } else {
       // Bypass: ocultar todo el panel lateral
       sidePanel.classList.add('collapsed')
@@ -330,17 +347,7 @@
       if (target === 'cancelled') return
     }
 
-    // 1. Abrir vista previa flotante de la cámara si corresponde
-    // (Document Picture-in-Picture: se ve aunque cambies de ventana)
-    const previewWasOpen = Bubble.isOpen()
-    if (camMode === 'embed' && !previewWasOpen) {
-      await Bubble.open().catch(() => {})
-    }
-    const previewOpenedForAttempt = !previewWasOpen && Bubble.isOpen()
-
-    // 2. Compartir pantalla + (opcional) seleccionar área + preparar recorder
-    setStatus('PREPARANDO…')
-    Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
+    // 1. Capturar configuración de la cámara desde la burbuja
     const camera = camMode === 'embed'
       ? {
           shape: Bubble.getShape(),
@@ -354,12 +361,20 @@
           }
         }
       : null
+
+    // 2. Cerrar burbuja flotante antes de grabar: el compositor (Crop)
+    //    dibuja la cámara directamente en el video, evitando que la ventana
+    //    PiP aparezca duplicada por la captura de pantalla.
+    if (camMode === 'embed') Bubble.close()
+
+    // 3. Compartir pantalla + (opcional) seleccionar área + preparar recorder
+    setStatus('PREPARANDO…')
+    Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
     let started
     try {
       started = await Recorder.start({ mode, quality, camera, onStop: onRecordingDone })
     } catch (err) {
       Recorder.abort()
-      if (previewOpenedForAttempt) Bubble.close()
       showView('setup')
       setStatus('LISTO')
       if (err.name === 'NotSupportedError') {
@@ -371,7 +386,6 @@
       return
     }
     if (!started) {
-      if (previewOpenedForAttempt) Bubble.close()
       showView('setup')
       setStatus('LISTO')
       return

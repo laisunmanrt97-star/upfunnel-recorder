@@ -283,10 +283,7 @@ test('embedded camera can move freely and persists its position', async ({ page,
     studio.setCameraPosition(24, 24)
     const after = studio.getCameraRect()
     const saved = JSON.parse(localStorage.getItem('snaprec-opts'))
-    const pipSupported = 'documentPictureInPicture' in window
-    const pipDocument = pipSupported ? eval('documentPictureInPicture.window?.document') : null
-    const faithfulPreview = !pipSupported || !!pipDocument?.querySelector('video')
-    return { before, after, saved: saved.camPosition, faithfulPreview }
+    return { before, after, saved: saved.camPosition }
   })
 
   expect(positions.before.x).toBeGreaterThan(positions.after.x)
@@ -295,7 +292,6 @@ test('embedded camera can move freely and persists its position', async ({ page,
   expect(positions.after.y).toBe(24)
   expect(positions.saved.x).toBe(0)
   expect(positions.saved.y).toBe(0)
-  expect(positions.faithfulPreview).toBe(true)
 
   await page.click('#btn-stop')
   await page.waitForSelector('#view-done:not([hidden])', { timeout: 15000 })
