@@ -118,7 +118,7 @@ const Devices = (() => {
     })
   }
 
-  // Devuelve un stream de la cámara elegida (para la burbuja)
+  // Devuelve un stream de la cámara elegida
   async function getCamStream () {
     return navigator.mediaDevices.getUserMedia({
       video: camSelect.value
@@ -142,7 +142,7 @@ const Devices = (() => {
       updateStatusbar()
       if (wasTesting) startVuMeter()
     })
-    camSelect.addEventListener('change', () => { savePrefs(); updateStatusbar(); Bubble.onCameraChange() })
+    camSelect.addEventListener('change', () => { savePrefs(); updateStatusbar() })
     navigator.mediaDevices.addEventListener('devicechange', refresh)
   }
 

@@ -1,4 +1,4 @@
-const CACHE = 'snaprec-v8'
+const CACHE = 'snaprec-v9'
 const ASSETS = [
   '/style.css',
   '/manifest.json',
@@ -9,7 +9,6 @@ const ASSETS = [
   '/assets/Inter-variable.woff2',
   '/js/tools.js',
   '/js/devices.js',
-  '/js/bubble.js',
   '/js/stats.js',
   '/js/dashboard.js',
   '/js/crop.js',

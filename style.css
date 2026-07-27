@@ -313,38 +313,6 @@ select {
   border-radius: 8px;
 }
 
-/* ── Cámara mini overlay ── */
-.cam-preview {
-  position: absolute;
-  bottom: 16px;
-  right: 16px;
-  width: 180px;
-  height: 135px;
-  border: 2px solid var(--uf-accent);
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 0 16px rgba(0, 229, 255, 0.3);
-  z-index: 5;
-  background: #000;
-}
-.cam-preview video {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
-  transform: scaleX(-1);
-}
-.cam-preview-label {
-  position: absolute;
-  top: 4px;
-  left: 6px;
-  font-size: 9px;
-  font-weight: 700;
-  color: var(--uf-accent);
-  letter-spacing: 1px;
-  text-shadow: 0 0 6px rgba(0,0,0,0.8);
-  pointer-events: none;
-}
 
 #edit-wrap {
   border: 1px solid var(--uf-border);

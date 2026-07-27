@@ -16,7 +16,6 @@
   // Auto-detectar preset según CPU: ≤4 cores → liviano, sino → HD
   let quality = (navigator.hardwareConcurrency || 8) <= 4 ? 'light15' : 'hd720'
   let camMode = 'embed'     // embed | off
-  let camCorner = 'br'      // tl | tr | bl | br
   let camPosition = null    // posición libre normalizada { x, y }
   let saveDirect = false
   let lastResult = null
@@ -36,13 +35,12 @@
       if (p.capMode) capMode = p.capMode
       if (p.quality) quality = p.quality
       if (p.camMode) camMode = p.camMode
-      if (p.camCorner) camCorner = p.camCorner
       if (typeof p.saveDirect === 'boolean') saveDirect = p.saveDirect
       if (p.camPosition && Number.isFinite(p.camPosition.x) && Number.isFinite(p.camPosition.y)) camPosition = p.camPosition
     } catch {}
   }
   function savePrefs () {
-    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, camCorner, camPosition, saveDirect }))
+    localStorage.setItem(PREF_KEY, JSON.stringify({ mainTab, mode, capMode, quality, camMode, camPosition, saveDirect }))
   }
 
   function showView (name) {
@@ -115,7 +113,7 @@
       btn.classList.toggle('active', btn.dataset.tab === mainTab)
       btn.addEventListener('click', () => {
         mainTab = btn.dataset.tab
-        if (mainTab !== 'record') { Devices.stopVuMeter(); Bubble.close() }
+        if (mainTab !== 'record') { Devices.stopVuMeter() }
         if (mainTab !== 'capture') Capture.stopStream()
         savePrefs()
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn))
@@ -178,39 +176,15 @@
       })
     })
 
-    // Cámara
+    // Cámara (forma, tamaño y posición fijos: círculo, mediano, abajo-derecha)
     document.querySelectorAll('.cam-mode').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.cammode === camMode)
       btn.addEventListener('click', () => {
         camMode = btn.dataset.cammode
         savePrefs()
         document.querySelectorAll('.cam-mode').forEach(b => b.classList.toggle('active', b === btn))
-        document.getElementById('cam-embed-opts').classList.toggle('disabled-options', camMode !== 'embed')
       })
     })
-    document.getElementById('cam-embed-opts').classList.toggle('disabled-options', camMode !== 'embed')
-
-    document.querySelectorAll('.cam-corner').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.corner === camCorner)
-      btn.addEventListener('click', () => {
-        camCorner = btn.dataset.corner
-        camPosition = null
-        savePrefs()
-        document.querySelectorAll('.cam-corner').forEach(b => b.classList.toggle('active', b === btn))
-      })
-    })
-
-    document.getElementById('btn-bubble').addEventListener('click', () => Bubble.toggle())
-    document.querySelectorAll('.bubble-opt').forEach(btn =>
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.bubble-opt').forEach(b => b.classList.toggle('active', b === btn))
-        Bubble.setShape(btn.dataset.shape)
-      }))
-    document.querySelectorAll('.bubble-size').forEach(btn =>
-      btn.addEventListener('click', () => {
-        document.querySelectorAll('.bubble-size').forEach(b => b.classList.toggle('active', b === btn))
-        Bubble.setSize(btn.dataset.size)
-      }))
   }
 
   // ── Estudio de grabación (preview + anotación en vivo) ──────────────────
@@ -251,8 +225,7 @@
         }
       })
 
-      // Arrastre de cámara dentro del canvas de anotaciones (misma lógica
-      // que estaba en Bubble.openStudio)
+      // Arrastre de cámara dentro del canvas de anotaciones
       if (studio.getCameraRect && studio.setCameraPosition) {
         let draggingCamera = false
         let offsetX = 0, offsetY = 0
@@ -332,7 +305,6 @@
 
   function teardownStudio () {
     stopMetricsInterval()
-    Bubble.closeStudio()
     const preview = document.getElementById('rec-preview')
     preview.srcObject = null
     if (studioSurface) { studioSurface.destroy(); studioSurface = null }
@@ -347,27 +319,20 @@
       if (target === 'cancelled') return
     }
 
-    // 1. Capturar configuración de la cámara desde la burbuja
+    // 1. Configurar cámara incrustada (forma fija: círculo, mediano, abajo-derecha)
     const camera = camMode === 'embed'
       ? {
-          shape: Bubble.getShape(),
-          size: Bubble.getSize(),
-          corner: camCorner,
+          shape: 'circle',
+          size: 'm',
           position: camPosition,
           onPositionChange: (position) => {
             camPosition = position
-            document.querySelectorAll('.cam-corner').forEach(b => b.classList.remove('active'))
             savePrefs()
           }
         }
       : null
 
-    // 2. Cerrar burbuja flotante antes de grabar: el compositor (Crop)
-    //    dibuja la cámara directamente en el video, evitando que la ventana
-    //    PiP aparezca duplicada por la captura de pantalla.
-    if (camMode === 'embed') Bubble.close()
-
-    // 3. Compartir pantalla + (opcional) seleccionar área + preparar recorder
+    // 2. Compartir pantalla + (opcional) seleccionar área + preparar recorder
     setStatus('PREPARANDO…')
     Object.values(views).forEach(v => { v.hidden = true })   // deja lugar a view-area
     let started
@@ -439,7 +404,6 @@
 
   function onRecordingDone (result) {
     lastResult = result
-    Bubble.close()
     teardownStudio()
 
     // Traer el foco a SnapRec (útil cuando "Dejar de compartir" focus la otra ventana)
@@ -649,7 +613,6 @@
   window.addEventListener('pagehide', () => {
     Devices.stopVuMeter()
     Capture.stopStream()
-    Bubble.close()
     if (Recorder.isRecording()) Recorder.abort()
   })
 
@@ -657,7 +620,6 @@
 
   loadPrefs()
   if (checkSupport()) {
-    Bubble.init()
     recTools = wireToolbar('rec-tools')
     editTools = wireToolbar('edit-tools')
     Capture.init(editTools)
